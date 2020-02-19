@@ -20,3 +20,5 @@ java -jar ../event-sender-java/target/event-sender.jar | java -jar target/event-
 ```
 
 If `host` is not specified, it is assumed to be `localhost`
+
+**Please note that if you run this demo with WURFL Microservice for AWS/Azure you'll need to use a Standard edition or above to have access to all the capabilities used in this demo**

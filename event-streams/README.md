@@ -12,9 +12,9 @@ The applications can work together passing the first one's output to the second 
 Clone this repsitory on your local machine. 
 Then:
 ```sh
-cd event-sender-java
+cd event-sender
 mvn clean package
-cd ../event-processor-java
+cd ../event-processor
 mvn clean package
 java -jar ../event-sender-java/target/event-sender.jar | java -jar target/event-processor.jar --host <wm server IP address>
 ```

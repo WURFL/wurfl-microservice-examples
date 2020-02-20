@@ -14,7 +14,7 @@ event-streams demo requires Java 8 or above
 Clone this repsitory on your local machine. 
 Then:
 ```sh
-cd event-sender
+cd event-streams-java/event-sender
 mvn clean package
 cd ../event-processor
 mvn clean package

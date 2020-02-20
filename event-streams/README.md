@@ -9,6 +9,8 @@ Event streams demo for Wurfl Microservice is composed by two small Java applicat
 The applications can work together passing the first one's output to the second one's input via pipe.
 ### Compiling and launching the demo applications - Java
 
+event-streams demo requires Java 8 or above
+
 Clone this repsitory on your local machine. 
 Then:
 ```sh

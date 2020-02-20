@@ -2,6 +2,9 @@ package com.scientiamobile.wurflmicroservice.eventprocessor;
 
 import com.google.gson.annotations.SerializedName;
 
+import java.util.Map;
+import java.util.TreeMap;
+
 /**
  * Event data class is the model for the data arriving from the JSON event stream. The only data which is added
  * during this phase if the timestamp (time at which JSON event is sent to output in nanoseconds).
@@ -121,5 +124,24 @@ class EnrichedEventData {
 
     public void setWurflDeviceModel(String wurflDeviceModel) {
         this.wurflDeviceModel = wurflDeviceModel;
+    }
+
+    /**
+     * @return all JSON values that come from commonly used HTTP requests, so that we can pass them to the HTTP request to sent to the WURFL Microservice
+     */
+    public Map<String, String> getHeaders(){
+
+        Map<String,String> m = new TreeMap<>();
+        m.put("X-Ucbrowser-Ua", ucBrowserUa);
+        m.put("X-Ucbrowser-Device-Ua", ucBrowserDeviceUa);
+        m.put("User-Agent", userAgent);
+        m.put("X-Forwarded-For", xForwardedFor);
+        m.put("Accept-Charset", acceptCharset);
+        m.put("Accept-Encoding", acceptEncoding);
+        m.put("Accept", accept);
+        m.put("X-Operamini-Features", xOperaminiFeatures);
+        m.put("X-Operamini-Phone", xOperaminiPhone);
+        m.put("X-Operamini-Phone-Ua", xOperaminiPhoneUa);
+        return m;
     }
 }

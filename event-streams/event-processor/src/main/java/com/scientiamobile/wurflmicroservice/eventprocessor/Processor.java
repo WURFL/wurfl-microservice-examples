@@ -38,7 +38,7 @@ public class Processor {
 
         WmClient wmClient = null;
         try {
-            wmClient = WmClient.create("http", host, "80", "");
+            wmClient = WmClient.create("http", host, "8080", "");
             wmClient.setCacheSize(20000);
         } catch (WmException e) {
             System.out.println("Unable to connect to host: " + host);
@@ -52,7 +52,9 @@ public class Processor {
         while (token!= JsonToken.END_DOCUMENT && reader.hasNext()) {
             EnrichedEventData eventData = gson.fromJson(reader, EnrichedEventData.class);
             try {
-                Model.JSONDeviceData device = wmClient.lookupUseragent(eventData.getUserAgent());
+                // Simulate data coming from an HTTP request
+                HttpServletRequestMock request = new HttpServletRequestMock(eventData.getHeaders());
+                Model.JSONDeviceData device = wmClient.lookupRequest(request);
                 eventData.setWurflCompleteName(device.capabilities.get("complete_device_name"));
                 eventData.setWurflDeviceMake(device.capabilities.get("brand_name"));
                 eventData.setWurflDeviceModel(device.capabilities.get("model_name"));

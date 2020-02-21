@@ -38,7 +38,7 @@ public class Processor {
 
         WmClient wmClient = null;
         try {
-            wmClient = WmClient.create("http", host, "8080", "");
+            wmClient = WmClient.create("http", host, "80", "");
             wmClient.setCacheSize(20000);
         } catch (WmException e) {
             System.out.println("Unable to connect to host: " + host);

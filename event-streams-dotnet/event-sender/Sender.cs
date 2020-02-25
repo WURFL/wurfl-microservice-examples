@@ -37,10 +37,8 @@ namespace event_sender
                 Console.OutputEncoding = Encoding.UTF8;
                 Console.Write(jsonFormatted);
                 Console.Out.Flush();
-                //Console.Out.Close();
-                Thread.Sleep(200);
+                Thread.Sleep(150);
             }
-
         }
 
         // gets a timestamp in nanoseconds

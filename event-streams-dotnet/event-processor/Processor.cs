@@ -88,7 +88,6 @@ namespace event_processor
                             Console.WriteLine(e.Message);
                             errors.Add("Error: " + e.Message);
                         }
-
                     }
                 }
             }

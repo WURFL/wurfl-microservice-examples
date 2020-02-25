@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Threading;
 using Newtonsoft.Json;
-
+using Newtonsoft.Json.Linq;
 
 namespace event_sender
 {
@@ -11,8 +12,6 @@ namespace event_sender
     {
         static void Main(string[] args)
         {
-            Console.WriteLine(Directory.GetCurrentDirectory());
-
             var path = @"..\..\..\event_stream.json";
             // This text is added only once to the file.
             if (!File.Exists(path))
@@ -27,8 +26,19 @@ namespace event_sender
             {
                 // Adds a timestamp, serializes events again and sends it to the stdout one by one
                 ev.SetTimestamp(GetTimestamp());
-                Console.WriteLine(JsonConvert.SerializeObject(ev));
-                Thread.Sleep(100);
+                JsonSerializerSettings settings = new JsonSerializerSettings
+                {
+                    NullValueHandling = NullValueHandling.Ignore,
+                    StringEscapeHandling = StringEscapeHandling.EscapeNonAscii
+                    
+                };
+                var njson = JsonConvert.SerializeObject(ev, settings);
+                var jsonFormatted = JValue.Parse(njson).ToString(Formatting.Indented);
+                Console.OutputEncoding = Encoding.UTF8;
+                Console.Write(jsonFormatted);
+                Console.Out.Flush();
+                //Console.Out.Close();
+                Thread.Sleep(200);
             }
 
         }

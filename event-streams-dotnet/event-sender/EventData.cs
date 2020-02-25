@@ -22,8 +22,7 @@ namespace event_sender
 
         [JsonProperty("X-Forwarded-For")]
         private String xForwardedFor;
-
-        [JsonProperty("Accept")]
+        
         private String accept;
 
         [JsonProperty("User-Agent")]

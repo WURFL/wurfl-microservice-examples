@@ -1,7 +1,5 @@
 ﻿using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace event_processor
 {
@@ -24,8 +22,7 @@ namespace event_processor
 
         [JsonProperty("X-Forwarded-For")]
         private String xForwardedFor;
-
-        [JsonProperty("Accept")]
+        
         private String accept;
 
         [JsonProperty("User-Agent")]
@@ -76,12 +73,7 @@ namespace event_processor
         // timestamp in nanoseconds, when the event is sent to output (not in the original stream)
         [JsonProperty("timestamp")]
         private long timestamp;
-
-        public void SetTimestamp(long timestamp)
-        {
-            this.timestamp = timestamp;
-        }
-
+        
         // Device detection fields
         [JsonProperty("Wurfl-Complete-Name")]
         private String wurflCompleteName;
@@ -106,5 +98,6 @@ namespace event_processor
         public string AcceptLanguage { get => acceptLanguage; set => acceptLanguage = value; }
         public string Accept { get => accept; set => accept = value; }
         public string XOperaminiPhoneUa { get => xOperaminiPhoneUa; set => xOperaminiPhoneUa = value; }
+        public long Timestamp { get => timestamp; set => timestamp = value; }
     }
 }

@@ -35,7 +35,7 @@ dotnet event-sender.dll --path <path to event_stream.json> | dotnet ../../../eve
 - `path` is the absolute path of the event_stream.json file in your local repo. If `path` is not specified, a default value will be used. 
 - If `host` is not specified, it is assumed to be `localhost`
 
-The events-streams demo apps will output a series of data enriched Json snippets like this:
+The events-streams demo apps will output a series of Json snippets enriched with WURFL device detection data like this:
 
 ```Javascript
 {

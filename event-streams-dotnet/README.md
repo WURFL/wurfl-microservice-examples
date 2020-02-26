@@ -52,7 +52,6 @@ The events-streams demo apps will output a series of Json snippets enriched with
   "Wurfl-Form-Factor": "Smartphone",
   "Wurfl-Device-Make": "Samsung",
   "Wurfl-Device-Model": "SM-G900FQ",
-  "UserAgent": "Mozilla/5.0 (Linux; Android 6.0.1; SM-G900FQ) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.93 Mobile Safari/537.36",
   "WurflCompleteName": "Samsung SM-G900FQ (Galaxy S5)",
   "WurflDeviceOS": "Android 6.0",
   "WurflDeviceMake": "Samsung",

@@ -52,8 +52,6 @@ namespace event_processor
             {
                 using (StreamReader reader = new StreamReader(Console.OpenStandardInput(), Console.InputEncoding))
                 {
-                //using (var reader = new StreamReader(stream))
-                //{
                     String json = reader.ReadToEnd();
                     while (json != null && json.Length > 0)
                     {

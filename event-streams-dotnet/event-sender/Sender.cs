@@ -16,7 +16,7 @@ namespace event_sender
             switch (args.Length)
             {
                 case 0:
-                    // keeps default host
+                    // keeps default path
                     break;
                 case 2:
                     path = args[1];

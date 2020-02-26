@@ -13,10 +13,26 @@ namespace event_sender
         static void Main(string[] args)
         {
             var path = @"..\..\..\event_stream.json";
+            switch (args.Length)
+            {
+                case 0:
+                    // keeps default host
+                    break;
+                case 2:
+                    path = args[1];
+                    break;
+                default:
+                    Console.WriteLine("Usage: event-sender [--path <path of the json file>]");
+                    Thread.Sleep(2000);
+                    Environment.Exit(1);
+                    break;
+            }
+
+
             // This text is added only once to the file.
             if (!File.Exists(path))
             {
-                Console.WriteLine("Unable to open json event stream, file does not exist");
+                Console.WriteLine("Unable to open json event stream < " + path + " >, file does not exist");
                 Thread.Sleep(2000);
                 Environment.Exit(1);
             }

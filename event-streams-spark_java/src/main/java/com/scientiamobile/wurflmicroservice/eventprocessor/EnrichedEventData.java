@@ -2,6 +2,7 @@ package com.scientiamobile.wurflmicroservice.eventprocessor;
 
 import com.google.gson.annotations.SerializedName;
 
+import java.io.Serializable;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -9,7 +10,7 @@ import java.util.TreeMap;
  * Event data class is the model for the data arriving from the JSON event stream. The only data which is added
  * during this phase if the timestamp (time at which JSON event is sent to output in nanoseconds).
  */
-class EnrichedEventData {
+class EnrichedEventData implements Serializable {
 
     @SerializedName(value = "X-Ucbrowser-Ua")
     private String ucBrowserUa;

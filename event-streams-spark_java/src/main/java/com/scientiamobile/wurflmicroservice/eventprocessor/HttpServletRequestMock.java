@@ -7,6 +7,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 import java.security.Principal;
 import java.util.*;
@@ -15,7 +16,7 @@ import java.util.*;
  * Dummy implementation of HttpServletRequest, just for the sake of this demo.
  * Since we only care about headers here, many methods will return their return types default value (0, false or null).
  */
-public class HttpServletRequestMock implements HttpServletRequest {
+public class HttpServletRequestMock implements HttpServletRequest, Serializable {
 
     private  Map<String, String> _headers = new TreeMap<String, String>();
 

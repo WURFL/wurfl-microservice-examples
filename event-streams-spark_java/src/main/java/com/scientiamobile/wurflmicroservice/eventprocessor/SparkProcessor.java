@@ -9,6 +9,8 @@ import org.apache.spark.*;
 import org.apache.spark.streaming.*;
 import org.apache.spark.streaming.api.java.*;
 
+import java.io.StringReader;
+
 public class SparkProcessor {
 
     private static final String RECEIVER_HOST = "localhost";
@@ -27,35 +29,38 @@ public class SparkProcessor {
         // - uses four working threads
         // - One second time interval at which streaming data will be divided into batches
         SparkConf conf = new SparkConf().setMaster("local[4]").setAppName("WurflDeviceDetection");
-        JavaStreamingContext jssc = new JavaStreamingContext(conf, Durations.seconds(1));
+        JavaStreamingContext jssc = new JavaStreamingContext(conf, Durations.seconds(30));
 
         // We create a socket receiver running at localhost:9999 to which events will be streamed
         JavaReceiverInputDStream<String> stream = jssc.socketTextStream(RECEIVER_HOST, RECEIVER_PORT);
         // Maps string events to parsed Java objects
-        JavaDStream<EnrichedEventData> events = stream.map(s -> {
+        JavaDStream<EnrichedEventData[]> events = stream.map(s -> {
             // We'll use a Gson parser to parse events into Java objects
             Gson gson = new GsonBuilder().setPrettyPrinting().create();
-            return gson.fromJson(s, EnrichedEventData.class);
+            return gson.fromJson(new StringReader(s), EnrichedEventData[].class);
         });
         // Now enrich the received event object with device detection data
-        JavaDStream<EnrichedEventData> enrichedEvents = events.map(ev -> {
+        JavaDStream<EnrichedEventData[]> enrichedEvents = events.map(evs -> {
             WmClient wmClient = WmClientProvider.getOrCreate(wmServerHost, "80");
-            try {
-                HttpServletRequestMock request = new HttpServletRequestMock(ev.getHeaders());
-                Model.JSONDeviceData device = wmClient.lookupRequest(request);
-
-                System.out.println(device.capabilities.get("complete_device_name"));
-                ev.setWurflCompleteName(device.capabilities.get("complete_device_name"));
-                ev.setWurflDeviceMake(device.capabilities.get("brand_name"));
-                ev.setWurflDeviceModel(device.capabilities.get("model_name"));
-                ev.setWurflFormFactor(device.capabilities.get("form_factor"));
-                ev.setWurflDeviceOS(device.capabilities.get("device_os") + " " + device.capabilities.get("device_os_version"));
-            } catch (WmException e) {
-                // ...handle detection error (most of the times some connection/transfer exception from the WM server)
+            for (EnrichedEventData evItem: evs){
+                try {
+                    HttpServletRequestMock request = new HttpServletRequestMock(evItem.getHeaders());
+                    Model.JSONDeviceData device = wmClient.lookupRequest(request);
+                    System.out.println(device.capabilities.get("complete_device_name"));
+                    evItem.setWurflCompleteName(device.capabilities.get("complete_device_name"));
+                    evItem.setWurflDeviceMake(device.capabilities.get("brand_name"));
+                    evItem.setWurflDeviceModel(device.capabilities.get("model_name"));
+                    evItem.setWurflFormFactor(device.capabilities.get("form_factor"));
+                    evItem.setWurflDeviceOS(device.capabilities.get("device_os") + " " + device.capabilities.get("device_os_version"));
+                } catch (WmException e) {
+                    // ...handle detection error (most of the times some connection/transfer exception from the WM server)
+                }
             }
-            return ev;
+            return evs;
         });
+        System.out.println("---------------------------------------");
         enrichedEvents.print();
+        System.out.println("---------------------------------------");
 
         // Let's start the streaming activity and wait for it to end
         jssc.start();

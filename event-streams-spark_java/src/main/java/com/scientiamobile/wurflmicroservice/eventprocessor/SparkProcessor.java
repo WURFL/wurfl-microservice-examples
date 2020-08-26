@@ -46,7 +46,7 @@ public class SparkProcessor {
                 try {
                     HttpServletRequestMock request = new HttpServletRequestMock(evItem.getHeaders());
                     Model.JSONDeviceData device = wmClient.lookupRequest(request);
-                    System.out.println(device.capabilities.get("complete_device_name"));
+                    //System.out.println(device.capabilities.get("complete_device_name"));
                     evItem.setWurflCompleteName(device.capabilities.get("complete_device_name"));
                     evItem.setWurflDeviceMake(device.capabilities.get("brand_name"));
                     evItem.setWurflDeviceModel(device.capabilities.get("model_name"));
@@ -58,9 +58,18 @@ public class SparkProcessor {
             }
             return evs;
         });
-        System.out.println("---------------------------------------");
-        enrichedEvents.print();
-        System.out.println("---------------------------------------");
+
+        enrichedEvents.foreachRDD(evList -> {
+            evList.foreach(eev -> {
+                for (EnrichedEventData e: eev){
+                    System.out.println("---------------------------------------------------------------------------");
+                    System.out.println("Complete device name: " + e.getWurflCompleteName());
+                    System.out.println("Device OS & version:  " + e.getWurflDeviceOS());
+                    System.out.println("Device form factor:   " + e.getWurflFormFactor());
+                    System.out.println("---------------------------------------------------------------------------");
+                }
+            });
+        });
 
         // Let's start the streaming activity and wait for it to end
         jssc.start();

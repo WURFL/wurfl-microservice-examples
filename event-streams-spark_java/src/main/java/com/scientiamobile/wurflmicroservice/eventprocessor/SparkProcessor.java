@@ -10,6 +10,8 @@ import org.apache.spark.streaming.*;
 import org.apache.spark.streaming.api.java.*;
 
 import java.io.StringReader;
+import java.util.HashMap;
+import java.util.Map;
 
 public class SparkProcessor {
 
@@ -23,6 +25,8 @@ public class SparkProcessor {
         } else {
             return;
         }
+
+        final Map<String, Integer> brandCount = new HashMap<>();
 
         // Context configuration:
         // - executed locally
@@ -46,16 +50,27 @@ public class SparkProcessor {
                 try {
                     HttpServletRequestMock request = new HttpServletRequestMock(evItem.getHeaders());
                     Model.JSONDeviceData device = wmClient.lookupRequest(request);
-                    //System.out.println(device.capabilities.get("complete_device_name"));
                     evItem.setWurflCompleteName(device.capabilities.get("complete_device_name"));
                     evItem.setWurflDeviceMake(device.capabilities.get("brand_name"));
                     evItem.setWurflDeviceModel(device.capabilities.get("model_name"));
                     evItem.setWurflFormFactor(device.capabilities.get("form_factor"));
                     evItem.setWurflDeviceOS(device.capabilities.get("device_os") + " " + device.capabilities.get("device_os_version"));
+
+                    if (!brandCount.containsKey(evItem.getWurflDeviceMake())){
+                        brandCount.put(evItem.getWurflDeviceMake(), 0);
+                    }
+                    brandCount.put(evItem.getWurflDeviceMake(), brandCount.get(evItem.getWurflDeviceMake()) + 1 );
                 } catch (WmException e) {
                     // ...handle detection error (most of the times some connection/transfer exception from the WM server)
                 }
             }
+
+            System.out.println("--------------------------------------BRAND COUNT -------------------------");
+            System.out.println("S: " + brandCount.size());
+            brandCount.forEach((k,v) -> {
+                System.out.println(k + ": " + v);
+            });
+            System.out.println("---------------------------------------------------------------------------");
             return evs;
         });
 
@@ -65,11 +80,15 @@ public class SparkProcessor {
                     System.out.println("---------------------------------------------------------------------------");
                     System.out.println("Complete device name: " + e.getWurflCompleteName());
                     System.out.println("Device OS & version:  " + e.getWurflDeviceOS());
-                    System.out.println("Device form factor:   " + e.getWurflFormFactor());
+                    System.out.println("Device form factor:c   " + e.getWurflFormFactor());
                     System.out.println("---------------------------------------------------------------------------");
+
                 }
             });
+
         });
+
+
 
         // Let's start the streaming activity and wait for it to end
         jssc.start();

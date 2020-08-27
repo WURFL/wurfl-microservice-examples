@@ -46,7 +46,7 @@ public class SparkProcessor {
         // Now enrich the received event object with device detection data
         JavaDStream<EnrichedEventData[]> enrichedEvents = events.map(evs -> {
             WmClient wmClient = WmClientProvider.getOrCreate(wmServerHost, "80");
-            for (EnrichedEventData evItem: evs){
+            for (EnrichedEventData evItem : evs) {
                 try {
                     HttpServletRequestMock request = new HttpServletRequestMock(evItem.getHeaders());
                     Model.JSONDeviceData device = wmClient.lookupRequest(request);
@@ -55,40 +55,35 @@ public class SparkProcessor {
                     evItem.setWurflDeviceModel(device.capabilities.get("model_name"));
                     evItem.setWurflFormFactor(device.capabilities.get("form_factor"));
                     evItem.setWurflDeviceOS(device.capabilities.get("device_os") + " " + device.capabilities.get("device_os_version"));
-
-                    if (!brandCount.containsKey(evItem.getWurflDeviceMake())){
-                        brandCount.put(evItem.getWurflDeviceMake(), 0);
-                    }
-                    brandCount.put(evItem.getWurflDeviceMake(), brandCount.get(evItem.getWurflDeviceMake()) + 1 );
                 } catch (WmException e) {
                     // ...handle detection error (most of the times some connection/transfer exception from the WM server)
                 }
             }
-
-            System.out.println("--------------------------------------BRAND COUNT -------------------------");
-            System.out.println("S: " + brandCount.size());
-            brandCount.forEach((k,v) -> {
-                System.out.println(k + ": " + v);
-            });
-            System.out.println("---------------------------------------------------------------------------");
             return evs;
         });
 
         enrichedEvents.foreachRDD(evList -> {
+            Map<String, Integer> bcount = new HashMap<>();
             evList.foreach(eev -> {
-                for (EnrichedEventData e: eev){
+                for (EnrichedEventData e : eev) {
                     System.out.println("---------------------------------------------------------------------------");
                     System.out.println("Complete device name: " + e.getWurflCompleteName());
                     System.out.println("Device OS & version:  " + e.getWurflDeviceOS());
-                    System.out.println("Device form factor:c   " + e.getWurflFormFactor());
+                    System.out.println("Device form factor:    " + e.getWurflFormFactor());
                     System.out.println("---------------------------------------------------------------------------");
 
+                    if (!bcount.containsKey(e.getWurflDeviceMake())) {
+                        bcount.put(e.getWurflDeviceMake(), 0);
+                    }
+                    bcount.put(e.getWurflDeviceMake(), bcount.get(e.getWurflDeviceMake()) + 1);
                 }
+                System.out.println("--------------------------------------BRAND COUNT -------------------------");
+                bcount.forEach((k, v) -> {
+                    System.out.println(k + ": " + v);
+                });
+                System.out.println("---------------------------------------------------------------------------");
             });
-
         });
-
-
 
         // Let's start the streaming activity and wait for it to end
         jssc.start();

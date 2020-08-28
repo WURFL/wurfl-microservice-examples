@@ -1,13 +1,40 @@
 # WURFL Microservice Spark Streaming example
 
 This project demonstrates how to use WURFL Microservice client and server to add device detection features to a Spark Streaming Java app.
+We will use `netcat` command to send data of http request headers in JSON format to our app via a socket listening on port `9999`
+
+An example of the JSON input is:
+
+```
+[{
+   "Save-Data":"on",
+   "Accept-Language":"en",
+   "Accept-Encoding":"gzip, deflate",
+   "X-Operamini-Features":"advanced, camera, download, file_system, folding, httpping, pingback, routing, touch, viewport",
+   "X-Forwarded-For":"103.38.89.102, 141.0.8.173",
+   "Accept":"text/html, application/xml;q=0.9, application/xhtml+xml, image/png, image/webp, image/jpeg, image/gif, image/x-xbitmap, */*;q=0.1",
+   "User-Agent":"Opera/9.80 (Android; Opera Mini/39.1.2254/163.76; U; en) Presto/2.12.423 Version/12.16",
+   "X-Operamini-Phone-Ua":"Mozilla/5.0 (Linux; Android 9; moto g(6) plus Build/PPWS29.116-16-15; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/73.0.3683.90 Mobile Safari/537.36",
+   "Device-Stock-Ua":"Mozilla/5.0 (Linux; Android 9; moto g(6) plus Build/PPWS29.116-16-15; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/73.0.3683.90 Mobile Safari/537.36",
+   "Event":"VIDEO_OK",
+   "Video-id":"TPhZnruRPsM",
+   "Forwarded":"for=\"103.38.89.102:49931\""
+}]
+```
+
+The app will uses the headers data to perform a device detection and enrich the JSON with data such as device brand, model and OS. 
+It also does some data aggregation to count how many devices have been detected for each brand.
+
+Application output will look like this:
+
+![](https://github.com/WURFL/wurfl-microservice-examples/blob/1.0.0/event-streams-spark_java/img/output.png)
 
 ## Prerequisites
 
 - Spark 2.x and above
 - Java 8 and above
 - netcat command
-- WURFL Microservice server:
+- A WURFL Microservice server:
 
     using WURFL Microservice for Docker/AWS/Azure will allow you to run your own WURFL-based device detection service in your hosting infrastructure by deploying familiar Docker images, AWS ec2 instances or Azure VMs.
     Getting started with WURFL Microservice https://docs.scientiamobile.com/documentation/wurfl-microservice/aws-getting-started
@@ -44,7 +71,3 @@ Assuming we are on the root directory of the app project we can do
 
 This will send the content of the json file to the socket listening for data in our application.
 Repeat this command two or three times to see the results on the console.
-
-The output will look like this:
-
-![](https://github.com/WURFL/wurfl-microservice-examples/blob/1.0.0/event-streams-spark_java/img/output.png)

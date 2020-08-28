@@ -47,4 +47,4 @@ Repeat this command two or three times to see the results on the console.
 
 The output will look like this:
 
-!(img/output.png)
+![](https://github.com/WURFL/wurfl-microservice-examples/blob/1.0.0/event-streams-spark_java/img/output.png)

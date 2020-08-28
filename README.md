@@ -10,3 +10,5 @@ https://aws.amazon.com/marketplace/pp/B076MB5TRD
 Azure VMs :
 https://azuremarketplace.microsoft.com/en-us/marketplace/apps/scientiamobile.wurfl_microservice_2_0_basic
 
+GCP VMs: https://console.cloud.google.com/marketplace/browse?q=WURFL
+

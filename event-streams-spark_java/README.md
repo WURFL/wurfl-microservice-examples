@@ -1,7 +1,7 @@
 # WURFL Microservice Spark Streaming example
 
 This project demonstrates how to use WURFL Microservice client and server to add device detection features to a Spark Streaming Java app.
-We will use `netcat` command to send data of http request headers in JSON format to our app via a socket listening on port `9999`
+We will use `netcat` command to send http request headers data in JSON format to our app via a socket bound on port `9999`
 
 An example of the JSON input is:
 
@@ -22,7 +22,7 @@ An example of the JSON input is:
 }]
 ```
 
-The app will uses the headers data to perform a device detection and enrich the JSON with data such as device brand, model and OS. 
+The app uses the headers data to perform a device detection and enrich the JSON with data such as device brand, model and OS. 
 It also does some data aggregation to count how many devices have been detected for each brand.
 
 Application output will look like this:
@@ -52,15 +52,15 @@ From the example app root, do:
 
 `mvn clean install`
 
-The compilation output will be a jat file containing the app and all its dependencies
+The compilation output will be a jar file containing the app and all its dependencies
 
 `event-stream-spark-java-demo/<version_number>/event-stream-spark-java-demo-<version_number>-jar-with-dependencies.jar`
 
 ## Installing and running the app on Spark
 
-This is the command used to install the app on a standalone Spark installation (for Spark cluster installation please check Sparks documentation)
+This is the command used to install and run the app on a standalone Spark installation (for Spark cluster installation please check Spark documentation)
 
-`<SPARK_HOME>/bin/spark-submit --class com.scientiamobile.wurflmicroservice.eventprocessor.SparkProcessor --master local --deploy-mode client target/event-stream-spark-java-demo-<version>-jar-with-dependencies.jar <WURFL Microservice IP address>`
+`<SPARK_HOME>/bin/spark-submit --class com.scientiamobile.wurflmicroservice.eventprocessor.SparkProcessor --master local --deploy-mode client <path_to>/event-stream-spark-java-demo-<version>-jar-with-dependencies.jar <WURFL Microservice IP address>`
 
 ## Sending data to the Spark app 
 
@@ -71,3 +71,5 @@ Assuming we are on the root directory of the app project we can do
 
 This will send the content of the json file to the socket listening for data in our application.
 Repeat this command two or three times to see the results on the console.
+
+Please note the the app processes the sent data every 30 seconds, so it is possible that you'll have to wait some time to see the results diplayed on console.

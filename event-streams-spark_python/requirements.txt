@@ -1,0 +1,2 @@
+wmclient==2.1.0
+pyspark==3.0.1

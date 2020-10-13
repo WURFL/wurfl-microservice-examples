@@ -1,2 +1,12 @@
-# scientia
-Scientia microservice example 
+# WURFL Microservice pyspark streaming demo app
+
+## Requirements
+- Python 3.x
+- Java 8 or above (for Spark)
+- Pyspark 3.0.0 or above
+- WURFL Microservice client API 2.1.0
+- Pandas 1.1.3 (for csv output creation)
+
+## Running app 
+
+python ./spark_processor --ip <WM server IP> --port <WM server port>

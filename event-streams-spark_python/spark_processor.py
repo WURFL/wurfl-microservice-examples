@@ -13,6 +13,7 @@ from wmclient import WmClient
 # # Other imports
 import json
 import argparse
+import pandas as pd
 
 # Create a local StreamingContext with two working thread and batch interval of 1 second
 sc = SparkContext("local[2]", "WurflDeviceDetection")
@@ -59,9 +60,12 @@ def console_output(rdd):
     """
     Prints the output to the console
     Args:
-        rdd - spark RDD 
+        rdd - spark RDD
     """
     brand_count = {}
+    # ************** Pandas code ******************** #
+    evs_records = []
+    # *********************************************** #
     for evs in rdd:
         if isinstance(evs, str):
             print(evs)
@@ -72,10 +76,19 @@ def console_output(rdd):
             print("Device form factor:    " + evs["form_factor"])
             print("---------------------------------------------------------------------------")
 
+            # ************** Pandas code ******************** #
+            evs_records.append(evs)
+            # *********************************************** #
+
             if evs['brand_name'] not in brand_count:
                 brand_count[evs['brand_name']] = 1
             else:
                 brand_count[evs['brand_name']] += 1
+
+    # *****************************Pandas code ******************************************#
+    pd.DataFrame().from_records(evs_records).to_csv('evs_records.csv', index=False)
+    # ********************************************************************************** #
+
     print("--------------------------------------BRAND COUNT -------------------------")
     for key in brand_count:
         print(key + ": " + str(brand_count[key]))
@@ -110,7 +123,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='WurflDeviceDetection Spark Streaming application')
     parser.add_argument('--ip', type=str, default='localhost',
                         help='IP address of the VM server')
-    parser.add_argument('--port', type=int, default=80,
+    parser.add_argument('--port', type=int, default=8080,
                         help='Port of the VM server')
 
     args = parser.parse_args()

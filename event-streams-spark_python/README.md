@@ -10,11 +10,11 @@
 
 ## Running app 
 
-python ./spark_processor --ip <WM server IP> --port <WM server port>
+**python ./spark_processor --ip <WM server IP> --port <WM server port>**
   
 ## Sending data to the Spark application
 We use netcat to send data via TCP socket to the demo app:
 
 cd into the project root directory and run the following command
 
-**nc -lk 9999> < vent_stream_mid_compr.json**
+**nc -lk 9999 < event_stream_mid_compr.json**

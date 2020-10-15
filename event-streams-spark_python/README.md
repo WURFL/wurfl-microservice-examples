@@ -6,6 +6,7 @@
 - Pyspark 3.0.0 or above
 - WURFL Microservice client API 2.1.0
 - Pandas 1.1.3 (for csv output creation)
+- pycurl (on which WURFL Microservice client API depends)
 
 ## Running app 
 

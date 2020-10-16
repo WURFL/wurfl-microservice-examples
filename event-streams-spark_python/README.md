@@ -19,4 +19,4 @@ cd into the project root directory and run the following command
 
 **nc -lk 9999 < event_stream_mid_compr.json**
 
-The file analysis.py contains some data frames for extracting capabilities data to csv files
+- Note: the file analysis.py contains some data frames for extracting capabilities data to csv files

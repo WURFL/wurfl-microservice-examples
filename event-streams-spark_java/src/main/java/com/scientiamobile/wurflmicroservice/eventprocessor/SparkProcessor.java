@@ -26,8 +26,6 @@ public class SparkProcessor {
             return;
         }
 
-        final Map<String, Integer> brandCount = new HashMap<>();
-
         // Context configuration:
         // - executed locally
         // - uses four working threads

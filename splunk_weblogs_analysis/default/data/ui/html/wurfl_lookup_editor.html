@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>wurfl_lookup Editor | Splunk</title>
+    <link rel="shortcut icon" href="{{SPLUNKWEB_URL_PREFIX}}/static/img/favicon.ico" />
+        <link rel="stylesheet" type="text/css" href="{{SPLUNKWEB_URL_PREFIX}}/static/css/build/bootstrap.min.css" />
+        <link rel="stylesheet" type="text/css" href="{{SPLUNKWEB_URL_PREFIX}}/static/css/build/pages/dashboard-simple-bootstrap.min.css" />
+    <!--[if IE 7]><link rel="stylesheet" href="{{SPLUNKWEB_URL_PREFIX}}/static/css/sprites-ie7.css" /><![endif]-->
+</head>
+<body class="simplexml preload locale-en">
+<!-- 
+BEGIN LAYOUT
+This section contains the layout for the dashboard. Splunk uses proprietary
+styles in <div> tags, similar to Bootstrap's grid system. 
+-->
+<a class="navSkip" href="#navSkip" tabindex="1">Screen reader users, click here to skip the navigation bar</a>
+<div class="header splunk-header">
+        <div id="placeholder-splunk-bar">
+            <a href="{{SPLUNKWEB_URL_PREFIX}}/app/launcher/home" class="brand" title="splunk &gt; listen to your data">splunk<strong>&gt;</strong></a>
+        </div>
+            <div id="placeholder-app-bar"></div>
+</div>
+<a id="navSkip"></a>
+<div class="dashboard-body container-fluid main-section-body" data-role="main">
+    <div class="dashboard-header clearfix">
+        <h2>WURFL Lookup Editor</h2>
+        <p class="description">edit wurfl_lookup</p>
+		<p style="color:#000000; padding-top: 10px;  padding-bottom: 0px;">All Lookup Capabilities must be in Sync with the Licensed Capabilities, If not Lookup does not work</p>
+    </div>
+    <div class="fieldset">
+		<div class="PresentSupportingCapabilitiesLabel" id="PresentSupportingCapabilitiesLabel">
+            <h3 style="color:#000000">Current Lookup Capabilities</h3>
+        </div>
+		<div class="PresentSupportingCapabilities" id="PresentSupportingCapabilities">
+            <textarea id="PresentSupportingCapabilitiesText" readonly style="width: 800px;height: 50px;"></textarea>
+        </div>
+		<br/>
+		
+		<div class="ResponseLabel" id="ResponseLabel"></div>
+		<br/>
+		<div>
+		<!--<h3 style="color:#000000"> Current Licensed Capabilities</h3>-->
+		<br/>
+			<div id="requiredCapabilitiesDiv">
+			
+			</div>
+		</div><br/><br/>
+        
+		<div class="form-submit" >
+            <button class="btn btn-primary submit" id="editcapabilities">Edit&nbsp;</button>
+        </div>
+		<div class="form-submit" >
+            <button class="btn btn-primary submit" id="synccapabilities">Sync &nbsp;</button>
+        </div>
+		<br/>
+		
+    </div>
+
+
+</div>
+<div class="footer"></div>
+
+<!-- 
+END LAYOUT
+-->
+
+<script src="{{SPLUNKWEB_URL_PREFIX}}/config?autoload=1"></script>
+<script src="{{SPLUNKWEB_URL_PREFIX}}/static/js/i18n.js"></script>
+<script src="{{SPLUNKWEB_URL_PREFIX}}/i18ncatalog?autoload=1"></script>
+<script src="{{SPLUNKWEB_URL_PREFIX}}/static/js/build/simplexml.min/config.js"></script>
+<script type="text/javascript">
+require.config({
+    baseUrl: "{{SPLUNKWEB_URL_PREFIX}}/static/js",
+    waitSeconds: 0 // Disable require.js load timeout
+});
+
+//
+// LIBRARY REQUIREMENTS
+//
+// In the require function, we include the necessary libraries and modules for
+// the HTML dashboard. Then, we pass variable names for these libraries and
+// modules as function parameters, in order.
+// 
+// When you add libraries or modules, remember to retain this mapping order
+// between the library or module and its function parameter. You can do this by
+// adding to the end of these lists, as shown in the commented examples below.
+
+require([
+    "splunkjs/mvc",
+    "splunkjs/mvc/utils",
+    "splunkjs/mvc/tokenutils",
+    "underscore",
+    "jquery",
+    "splunkjs/mvc/simplexml",
+    "splunkjs/mvc/headerview",
+    "splunkjs/mvc/footerview",
+    "splunkjs/mvc/simplexml/dashboardview",
+    "splunkjs/mvc/simplexml/dashboard/panelref",
+    "splunkjs/mvc/simplexml/element/chart",
+    "splunkjs/mvc/simplexml/element/event",
+    "splunkjs/mvc/simplexml/element/html",
+    "splunkjs/mvc/simplexml/element/list",
+    "splunkjs/mvc/simplexml/element/map",
+    "splunkjs/mvc/simplexml/element/single",
+    "splunkjs/mvc/simplexml/element/table",
+    "splunkjs/mvc/simpleform/formutils",
+    "splunkjs/mvc/simplexml/eventhandler",
+    "splunkjs/mvc/simpleform/input/dropdown",
+    "splunkjs/mvc/simpleform/input/radiogroup",
+    "splunkjs/mvc/simpleform/input/multiselect",
+    "splunkjs/mvc/simpleform/input/checkboxgroup",
+    "splunkjs/mvc/simpleform/input/text",
+    "splunkjs/mvc/simpleform/input/timerange",
+    "splunkjs/mvc/simpleform/input/submit",
+    "splunkjs/mvc/searchmanager",
+    "splunkjs/mvc/savedsearchmanager",
+    "splunkjs/mvc/postprocessmanager",
+    "splunkjs/mvc/simplexml/urltokenmodel"
+    // Add comma-separated libraries and modules manually here, for example:
+    // ..."splunkjs/mvc/simplexml/urltokenmodel",
+    // "splunkjs/mvc/checkboxview"
+    ],
+    function(
+        mvc,
+        utils,
+        TokenUtils,
+        _,
+        $,
+        DashboardController,
+        HeaderView,
+        FooterView,
+        Dashboard,
+        PanelRef,
+        ChartElement,
+        EventElement,
+        HtmlElement,
+        ListElement,
+        MapElement,
+        SingleElement,
+        TableElement,
+        FormUtils,
+        EventHandler,
+        DropdownInput,
+        RadioGroupInput,
+        MultiSelectInput,
+        CheckboxGroupInput,
+        TextInput,
+        TimeRangeInput,
+        SubmitButton,
+        SearchManager,
+        SavedSearchManager,
+        PostProcessManager,
+        UrlTokenModel
+
+        // Add comma-separated parameter names here, for example: 
+        // ...UrlTokenModel, 
+        // CheckboxView
+        ) {
+
+
+
+        var pageLoading = true;
+		//retrieving app name
+		var app = utils.getCurrentApp();
+		console.log(app);
+
+        // 
+        // TOKENS
+        //
+        
+        // Create token namespaces
+        var urlTokenModel = new UrlTokenModel();
+        mvc.Components.registerInstance('url', urlTokenModel);
+        var defaultTokenModel = mvc.Components.getInstance('default', {create: true});
+        var submittedTokenModel = mvc.Components.getInstance('submitted', {create: true});
+
+        urlTokenModel.on('url:navigate', function() {
+            defaultTokenModel.set(urlTokenModel.toJSON());
+            if (!_.isEmpty(urlTokenModel.toJSON()) && !_.all(urlTokenModel.toJSON(), _.isUndefined)) {
+                submitTokens();
+            } else {
+                submittedTokenModel.clear();
+            }
+        });
+
+        // Initialize tokens
+        defaultTokenModel.set(urlTokenModel.toJSON());
+
+        function submitTokens() {
+            // Copy the contents of the defaultTokenModel to the submittedTokenModel and urlTokenModel
+            FormUtils.submitForm({ replaceState: pageLoading });
+        }
+
+        function setToken(name, value) {
+            defaultTokenModel.set(name, value);
+            submittedTokenModel.set(name, value);
+        }
+
+        function unsetToken(name) {
+            defaultTokenModel.unset(name);
+            submittedTokenModel.unset(name);
+        }
+        
+        //
+        // SEARCH MANAGERS
+        //
+
+        //
+        // SPLUNK HEADER AND FOOTER
+        //
+
+        new HeaderView({
+            id: 'header',
+            section: 'dashboards',
+            el: $('.header'),
+            acceleratedAppNav: true,
+            useSessionStorageCache: true,
+            splunkbar: true,
+            appbar: true,
+            litebar: false,
+        }, {tokens: true}).render();
+
+        new FooterView({
+            id: 'footer',
+            el: $('.footer')
+        }, {tokens: true}).render();
+
+
+        //
+        // DASHBOARD EDITOR
+        //
+
+        new Dashboard({
+            id: 'dashboard',
+            el: $('.dashboard-body'),
+            showTitle: true,
+            editable: true
+        }, {tokens: true}).render();
+
+
+        //
+        // VIEWS: VISUALIZATION ELEMENTS
+        //
+
+        // Initialize time tokens to default
+        if (!defaultTokenModel.has('earliest') && !defaultTokenModel.has('latest')) {
+            defaultTokenModel.set({ earliest: '0', latest: '' });
+        }
+
+            submitTokens();
+
+        //
+        // DASHBOARD READY
+        //
+
+        DashboardController.ready();
+        pageLoading = false;
+		
+		//compare method for arrays
+		Array.prototype.compare = function(testArr) {
+			if (this.length != testArr.length) return false;
+			for (var i = 0; i < testArr.length; i++) {
+				if (this[i].compare) { 
+					if (!this[i].compare(testArr[i])) return false;
+				}
+				if (this[i] !== testArr[i]) return false;
+			}
+			return true;
+		}
+		
+		//load old lookup
+		function lookupsToUI(app)
+		{
+			var url = Splunk.util.make_url("/custom/"+app+"/wurfllookupeditor/getLookupDisplay");
+			var u={namespace:app};
+					$.ajax({
+						url: url,
+						type:"POST",
+						data:u,
+						async:false,
+						complete: function(y,A){
+							console.log("completed from lookupstoUI");
+							var z=true;
+							if(y.status==404){
+								$("#ResponseLabel").html("<p style='color:#FF0000'>Lookup File/License File/wurfld config File is not found</p>");
+							}else if(y.status==405){
+								$("#ResponseLabel").html("<p style='color:#FF0000'>Error in accessing lookup fields</p>");
+							}
+							else if(y.status==500){
+								$("#ResponseLabel").html("<p style='color:#FF0000'>The lookup file can not be saved</p>");}
+							},
+						success: function(data){
+							console.log("from lookupstoUI:\n"+data);
+							$("#requiredCapabilitiesDiv").html("");
+							$("#PresentSupportingCapabilitiesText").val("");	
+							var response = JSON.parse(data);
+							console.log(response);		
+							var flist =  response.fieldsList;
+							var commonCapabilities = response.commonCapabilities;
+							var individual_commonCapabilities = commonCapabilities.split(",");
+							console.log("commonCapabilities : "+commonCapabilities);
+							var unCommonCapabilities = response.unCommonCapabilities;
+							var individual_unCommonCapabilities = unCommonCapabilities.split(",");
+							console.log("unCommonCapabilities : "+unCommonCapabilities);
+							$("#PresentSupportingCapabilitiesText").val(flist);							
+							var tabledata=""; var i=0; var selectall=""; //var totalCapabilities=0;
+							//adding capabilities to table with each row consisting of 5 capabilities
+							var allCapabilities = {}; var keys =[];
+							if(commonCapabilities != ""){
+							individual_commonCapabilities.forEach(function(a)
+								{		allCapabilities[a] = "<input type='checkbox' value='"+a+"' disabled='true' class='checkbox' checked />&nbsp;&nbsp;&nbsp;"+a+"&nbsp;&nbsp;&nbsp;";
+								}.bind(this)
+							);
+							}
+							//console.log("i: "+i);
+							if(unCommonCapabilities != ""){
+							individual_unCommonCapabilities.forEach(function(a)
+								{		allCapabilities[a] = "<input type='checkbox' value='"+a+"' class='checkbox'  />&nbsp;&nbsp;&nbsp;"+a+"&nbsp;&nbsp;&nbsp;";
+								}.bind(this)
+							);
+								selectall = "<input type='checkbox' id='checkAll' value='ca' />&nbsp;&nbsp;&nbsp;Check / Uncheck All<br/><br/>";
+							}
+							else{
+								selectall =	"<input type='checkbox' id='checkAll' value='ca' checked disabled='true'  />&nbsp;&nbsp;&nbsp;Check / Uncheck All<br/><br/>";
+							}
+							for (k in allCapabilities) {
+							  if (allCapabilities.hasOwnProperty(k)) {
+								keys.push(k);
+							  }
+							}
+							keys.sort();
+							for (j = 0; j < keys.length; j++) {
+							  k = keys[j];							
+										if(i==0){
+											tabledata = tabledata+"<tr><td>"+allCapabilities[k]+"</td>";
+											i++;
+										}
+										else if(i>0 && i<4){
+											tabledata = tabledata+"<td>"+allCapabilities[k]+"</td>";
+											i++;
+										}else if(i==4){
+											tabledata = tabledata+"<td>"+allCapabilities[k]+"</td></tr>";
+											i =0;
+										}
+							}
+							console.log("tabledata: "+tabledata);
+							tabledata = selectall+"<table>"+tabledata+"</table>";
+							$("#requiredCapabilitiesDiv").append(tabledata);	
+							console.log("values set");
+						}
+					})
+		}
+		$(document).ready(function() {
+				lookupsToUI(app);
+			}
+		
+		);
+		$('#requiredCapabilitiesDiv').on('click', "#checkAll", function() {
+				//alert("clicked");
+				//$("input:checkbox").prop('checked', $(this).prop("checked"));
+				//alert("clicked edit button");
+				if ($("#checkAll").is(':checked')) {
+					$('input:checkbox').each(function(){
+							if(!$(this).prop('disabled'))
+							{	//alert($(this).val());
+								$(this).prop('checked', true);
+							}
+					});
+        } else {
+				$('input:checkbox').each(function(){
+					if(!$(this).prop('disabled'))
+					{	//alert($(this).val());
+						$(this).prop('checked', false);
+					}
+				});
+        }
+		});
+		$("#editcapabilities").click(function () {
+				//alert("clicked edit button");
+				$('input:checkbox').each(function(){
+					if($(this).prop('disabled'))
+					{	//alert($(this).val());
+						$(this).prop('disabled', false);
+					}
+				});
+				
+		});
+		$("#synccapabilities").click(function () {
+			//calling rest api
+			var previousvals = $("#PresentSupportingCapabilitiesText").val();
+			var selectedCapabilities = [];
+			var testarray = [];
+			$('input:checked').each(function(a,b){	
+				val=$(b).attr('value');
+				//alert(val);
+				if(val == "ca")
+					console.log("val is empty");
+                else{ 
+				    selectedCapabilities.push(val);
+					testarray.push(val);
+					}
+			}.bind(this));
+			console.log(selectedCapabilities);
+			if(selectedCapabilities.length >=1){
+				//testarray.push("user_agent");
+				testarray.sort();
+				previousvalsArray = previousvals.split(", ");
+				//removing extra spaces
+				for(k=0;k<previousvalsArray.length;k++)
+					previousvalsArray[k] = previousvalsArray[k].trim();
+				previousvalsArray.sort(); 
+				console.log(previousvalsArray);
+				console.log(testarray);
+				if(!(testarray.compare(previousvalsArray)))
+				{
+						console.log("Both are same");
+						//if(selectedCapabilities.toString() == )
+						var url = Splunk.util.make_url("/custom/"+app+"/wurfllookupeditor/save");
+						var u={namespace:app, existingCapabilities:previousvals, selectedCapabilities:selectedCapabilities.toString()}
+						console.log(u);
+						$.ajax({
+							url: url,
+							type:"POST",
+							data:u,
+							complete: function(y,A){
+							console.log("completed updating lookup");
+							var z=true;
+							if(y.status==404){
+							$("#ResponseLabel").html("<p style='color:#e68123'>Lookup File/License File/wurfld config File is not found</p>");
+							}else if(y.status==405){
+								$("#ResponseLabel").html("<p style='color:#e68123'>Error in accessing lookup fields</p>");
+							}
+							else if(y.status==406){
+								$("#ResponseLabel").html("<p style='color:#e68123'>Error in Updating lookup fields</p>");
+							}
+							else if(y.status==500){
+							$("#ResponseLabel").html("<p style='color:#e68123'>The lookup file can not be saved</p>");}
+							},
+							success: function(data){
+								console.log(data);
+								$("#ResponseLabel").html("<p style='color:#000000'>"+data+"</p>");
+								lookupsToUI(app);
+							}
+						})
+				}
+				else{
+					$("#ResponseLabel").html("<p style='color:#e68123'>Current Lookup Capabilities are already in Sync with the Licensed Capabilities </p>");
+				}
+			}else{
+				$("#ResponseLabel").html("<p style='color:#e68123'> Must Select at least 1 Capability</p>");
+			}	
+				
+		});
+		$('#requiredCapabilitiesDiv').on('click', ".checkbox", function() {
+		 //$(".checkbox").on("change", function() {
+			if(!$(this).is(":checked")){
+			 $("#checkAll").prop('checked', false);
+			}
+			if($(".checkbox:checked").length == $(".checkbox").length) {
+				$("#checkAll").prop('checked', true);
+			}
+		});
+		
+    }
+);
+</script>
+</body>
+</html>

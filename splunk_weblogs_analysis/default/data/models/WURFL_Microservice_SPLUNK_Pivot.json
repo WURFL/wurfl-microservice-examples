@@ -1,0 +1,122 @@
+{
+    "modelName": "WURFL_Microservice_SPLUNK_Pivot",
+    "displayName": "WURFL Microservice For SPLUNK Pivot",
+    "description": "WURFL Microservice SPLUNK Pivot",
+    "objectSummary": {
+        "Event-Based": 0,
+        "Transaction-Based": 0,
+        "Search-Based": 1
+    },
+    "objects": [
+        {
+            "objectName": "WURFL_Microservice_SPLUNK_Pivot",
+            "displayName": "WURFL Microservice For SPLUNK Pivot",
+            "parentName": "BaseSearch",
+            "fields": [
+                {
+                    "fieldName": "brand_name",
+                    "owner": "WURFL_Microservice_SPLUNK_Pivot",
+                    "type": "string",
+                    "fieldSearch": "",
+                    "required": false,
+                    "multivalue": false,
+                    "hidden": false,
+                    "editable": true,
+                    "displayName": "brand_name",
+                    "comment": ""
+                },
+                {
+                    "fieldName": "ip_address",
+                    "owner": "WURFL_Microservice_SPLUNK_Pivot",
+                    "type": "string",
+                    "fieldSearch": "",
+                    "required": false,
+                    "multivalue": false,
+                    "hidden": false,
+                    "editable": true,
+                    "displayName": "ip_address",
+                    "comment": ""
+                },
+                {
+                    "fieldName": "is_tablet",
+                    "owner": "WURFL_Microservice_SPLUNK_Pivot",
+                    "type": "string",
+                    "fieldSearch": "",
+                    "required": false,
+                    "multivalue": false,
+                    "hidden": false,
+                    "editable": true,
+                    "displayName": "is_tablet",
+                    "comment": ""
+                },
+                {
+                    "fieldName": "user_agent",
+                    "owner": "WURFL_Microservice_SPLUNK_Pivot",
+                    "type": "string",
+                    "fieldSearch": "",
+                    "required": false,
+                    "multivalue": false,
+                    "hidden": false,
+                    "editable": true,
+                    "displayName": "user_agent",
+                    "comment": ""
+                },
+                {
+                    "fieldName": "form_factor",
+                    "owner": "WURFL_Microservice_SPLUNK_Pivot",
+                    "type": "string",
+                    "fieldSearch": "",
+                    "required": false,
+                    "multivalue": false,
+                    "hidden": false,
+                    "editable": true,
+                    "displayName": "form_factor",
+                    "comment": ""
+                },
+                {
+                    "fieldName": "is_mobile",
+                    "owner": "WURFL_Microservice_SPLUNK_Pivot",
+                    "type": "string",
+                    "fieldSearch": "",
+                    "required": false,
+                    "multivalue": false,
+                    "hidden": false,
+                    "editable": true,
+                    "displayName": "is_mobile",
+                    "comment": ""
+                },
+                {
+                    "fieldName": "device_os_version",
+                    "owner": "WURFL_Microservice_SPLUNK_Pivot",
+                    "type": "string",
+                    "fieldSearch": "",
+                    "required": false,
+                    "multivalue": false,
+                    "hidden": false,
+                    "editable": true,
+                    "displayName": "device_os_version",
+                    "comment": ""
+                },
+                {
+                    "fieldName": "complete_device_name",
+                    "owner": "WURFL_Microservice_SPLUNK_Pivot",
+                    "type": "string",
+                    "fieldSearch": "",
+                    "required": false,
+                    "multivalue": false,
+                    "hidden": false,
+                    "editable": true,
+                    "displayName": "complete_device_name",
+                    "comment": ""
+                }
+            ],
+            "calculations": [],
+            "constraints": [],
+            "lineage": "WURFL_Microservice_SPLUNK_Pivot",
+            "baseSearch": "host = \"*\" | lookup wurfl_lookup user_agent"
+        }
+    ],
+    "objectNameList": [
+        "WURFL_Microservice_SPLUNK_Pivot"
+    ]
+}

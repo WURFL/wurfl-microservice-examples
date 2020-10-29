@@ -1,0 +1,7 @@
+<nav search_view="search" color="#e68123">
+  <view name="search"/>
+  <a href ="/app/splunk_weblogs_analysis/pivot?q=%7C%20pivot%20WURFL_Microservice_SPLUNK_Pivot%20WURFL_InSight_SPLUNK_Pivot%20count(WURFL_Microservice_SPLUNK_Pivot)%20AS%20%22Count%20of%20WURFL%20InSight%20SPLUNK%20Pivot%22%20ROWSUMMARY%200%20COLSUMMARY%200%20NUMCOLS%200%20SHOWOTHER%201" >Pivot</a>
+  <view name="tabchecking" default="true" />
+  <a href="/app/splunk_weblogs_analysis/wurfl_lookup_editor" >Settings</a>
+  <a href="/app/splunk_weblogs_analysis/configurationsettings_html">Configuration</a>
+</nav>

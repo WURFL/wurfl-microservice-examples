@@ -1,0 +1,11 @@
+LICENSE.txt
+MANIFEST.in
+README.rst
+pylru.py
+setup.cfg
+setup.py
+test.py
+pylru.egg-info/PKG-INFO
+pylru.egg-info/SOURCES.txt
+pylru.egg-info/dependency_links.txt
+pylru.egg-info/top_level.txt

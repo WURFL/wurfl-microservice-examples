@@ -1,0 +1,24 @@
+[app/install/state]
+version = 8.0.6
+modtime = 1603897484.249919000
+
+[indexes/wurfl_lookup]
+owner = admin
+version = 8.0.6
+modtime = 1603961612.604773000
+
+[inputs/monitor%3A%2F%2F%2Fopt%2Fsplunk%2Fetc%2Fapps%2Fsplunk_weblogs_analysis%2Fdefault%2Fdata%2Faccess_combined.log]
+owner = admin
+version = 8.0.6
+modtime = 1603961622.867544000
+
+[transforms/wurfl_lookup]
+access = read : [ * ], write : [ * ]
+export = none
+owner = admin
+version = 8.0.6
+modtime = 1603968210.520599000
+
+[views/configurationsettings]
+version = 8.0.6
+modtime = 1603968013.279245000

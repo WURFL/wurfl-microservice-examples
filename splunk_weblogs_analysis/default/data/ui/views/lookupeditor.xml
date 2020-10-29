@@ -1,0 +1,5 @@
+<form>
+  <label>LookupEditor</label>
+  <description>For editing lookup</description>
+  <fieldset submitButton="true"></fieldset>
+</form>

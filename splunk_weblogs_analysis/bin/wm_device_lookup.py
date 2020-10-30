@@ -20,7 +20,7 @@ def get_or_create_wm_client():
     """Gets or Creates a WM client
           """
     if "WMClient" not in globals():
-        globals()["wm_client"] = WmClient.create("http", "localhost", "8080", "")
+        globals()["wm_client"] = WmClient.create("http", "localhost", 8080, "")
         logger.debug("WURFL Microservice client created")
 
     return globals()["wm_client"]
@@ -29,8 +29,11 @@ def get_or_create_wm_client():
 # Main function: entry point for Splunk apps
 if __name__ == '__main__':
 
-    logger.debug("START WURFL LOOKUP SCRIPT")
     wm_client = get_or_create_wm_client()
+    info = wm_client.get_info()
+    all_caps = info.static_capabilities
+    for cap in info.virtual_capabilities:
+        all_caps.append(cap)
 
     r = csv.reader(sys.stdin)
     w = csv.writer(sys.stdout)
@@ -43,6 +46,7 @@ if __name__ == '__main__':
             header = row
             logger.debug('fields found: %s' % header)
             have_header = True
+            logger.debug(header)
             z = 0
             for h in row:
                 if h == "user_agent":
@@ -53,7 +57,6 @@ if __name__ == '__main__':
 
         # TODO: use all headers to perform a detection
         user_agent = row[idx]
-        user_agent = urllib.unquote_plus(user_agent)
         logger.debug('found user-agent %s' % user_agent)
 
         logger.debug('executing lookup by user_agent')
@@ -71,10 +74,16 @@ if __name__ == '__main__':
 
         logger.debug('Sending out capability values')
         output_row = []
+        c = 0
         for header_name in header:
+            c += 1
+            # logger.debug(str(c) + "-" + header_name)
             if header_name == "user_agent":
                 output_row.append(user_agent)
             else:
-                output_row.append(device.capabilities[header_name])
-        w.writerow(output_row)
-        logger.debug('output written')
+                if header_name != "OUTPUT":
+                    output_row.append(device.capabilities[header_name])
+
+        logger.debug(output_row)
+        w.writerow("outrow: " + str(output_row))
+        logger.debug('------------- output written -------------')

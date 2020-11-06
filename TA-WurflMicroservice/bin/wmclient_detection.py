@@ -24,7 +24,7 @@ try:
     # ------------------------ Splunk service and index retrieval -------------------------------
     logger.debug("-------------------------------------- STARTING EXECUTION ---------------------------------------")
     # TODO: make this configurable
-    service = connect(host='localhost', port=8089, username='admin', password='Crotalo$179')
+    service = connect(host='localhost', port=8089, username='admin', password='')
     # workaround for "Must use user context of 'nobody' when interacting with collection configurations" error message
     service.namespace['owner'] = 'Nobody'
     splunk_indexes = service.indexes

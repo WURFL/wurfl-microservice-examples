@@ -1,11 +1,16 @@
+import base64
 import logging
 import os
 import sys
 import re
 import json
+from time import sleep
+
 from splunklib.client import connect
 import splunklib.results as results
 from wmclient import WmClient, WmClientError
+
+import configparser
 
 splunk_base_dir = os.environ.get("SPLUNK_HOME")
 logfile = splunk_base_dir + '/var/log/splunk/wm_index_migration.log'
@@ -14,26 +19,68 @@ wm_client = None
 # change level to error when done
 logging.basicConfig(filename=logfile, level=logging.INFO, format=LOG_FORMAT)
 logger = logging.getLogger('wm_client')
+
 try:
+    # ------------------------ Splunk service and index retrieval -------------------------------
+    logger.debug("-------------------------------------- STARTING EXECUTION ---------------------------------------")
+    # Load configuration
+    ROOT_DIR = os.path.abspath(os.path.dirname(__file__))
+    LOCAL_DIR = os.path.abspath(os.path.join(ROOT_DIR, '..', 'local'))
+    DEFAULT_DIR = os.path.abspath(os.path.join(ROOT_DIR, '..', 'default'))
+    local_inputs_file = os.path.join(LOCAL_DIR, 'inputs.conf')
+    default_inputs_file = os.path.join(DEFAULT_DIR, 'inputs.conf')
+    config = configparser.ConfigParser()
+    try:
+        config.read(open(local_inputs_file))
+    except FileNotFoundError:
+        logger.warning("No config file found in local directory: " + LOCAL_DIR)
+
+    try:
+        logger.info(default_inputs_file)
+        config = configparser.RawConfigParser()
+        logger.info("File read: " + str(config.read_file(open(default_inputs_file))))
+    except FileNotFoundError:
+        logger.error("No config file found in default directory: " + DEFAULT_DIR +
+                     ", exiting WURFL Microservice index enrichment script")
+        logger.error("Offending path: " + default_inputs_file)
+        sys.exit(1)
+
+    logger.info("Sections: " + str(config.sections()))
+    user = config.get("wurfl", "user")
+    enc_pwd = config.get("wurfl", "pwd")
+    pwd_bytes = base64.b64decode(enc_pwd)
+    pwd = pwd_bytes.decode('ascii')
+    splunk_host = config.get("wurfl", "host")
+    splunk_port = config.get("wurfl", "port")
+    wm_host = config.get("wurfl", "wm_host")
+    wm_port = config.getint("wurfl", "wm_port")
+    index_name = config.get("wurfl", "src_index")
+    dst_index = config.get("wurfl", "dst_index")
+    logger.debug("--- CONFIGURATION LOADED ----")
+
     # ------------------------ WM client creation and setup --------------------------------------
-    wm_client = WmClient.create("http", "localhost", 8080, "")
+    wm_client = WmClient.create("http", wm_host, wm_port, "")
     req_caps = ["complete_device_name", "brand_name", "device_os", "device_os_version", "is_mobile",
                 "is_tablet", "form_factor"]
     wm_client.set_requested_capabilities(req_caps)
 
     # ------------------------ Splunk service and index retrieval -------------------------------
-    logger.debug("-------------------------------------- STARTING EXECUTION ---------------------------------------")
-    # TODO: make this configurable
-    service = connect(host='localhost', port=8089, username='admin', password='')
+    service = connect(host=splunk_host, port=splunk_port, username=user, password=pwd)
     # workaround for "Must use user context of 'nobody' when interacting with collection configurations" error message
     service.namespace['owner'] = 'Nobody'
     splunk_indexes = service.indexes
-    # TODO: make this configurable
-    index_name = "apache_test"
-    dst_index = "dst_index"
+    # splunk_confs = service.confs
+    # for c in splunk_confs:
+    # logger.info(c.name)
+    # for stanza in splunk_confs['inputs']:
+    #  logger.info("------------------------")
+    #  logger.info(stanza.content)
+    #  logger.info("------------------------")
+
     src_index = splunk_indexes[index_name]
     if src_index is None:
-        logger.error("Source index " + index_name + "does not exist, exiting input script")
+        logger.error("Source index " + index_name +
+                     "does not exist, exiting WURFL Microservice index enrichment script")
         sys.exit(1)
     src_index_evt_count = src_index["totalEventCount"]
     if not isinstance(src_index_evt_count, int):
@@ -118,6 +165,7 @@ try:
     logger.info("Results count at scripts end: " + str(results_count))
     logger.info("refreshing new index")
     new_index.refresh()
+    sleep(10)
 except WmClientError as e:
     logger.error(e.message)
 finally:

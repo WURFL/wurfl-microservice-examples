@@ -56,12 +56,12 @@ try:
     wm_port = config.getint("wurfl", "wm_port")
     index_name = config.get("wurfl", "src_index")
     dst_index = config.get("wurfl", "dst_index")
+    concat_cap_list = config.get("wurfl", "capabilities")
     logger.debug("--- CONFIGURATION LOADED ----")
 
     # ------------------------ WM client creation and setup --------------------------------------
     wm_client = WmClient.create("http", wm_host, wm_port, "")
-    req_caps = ["complete_device_name", "brand_name", "device_os", "device_os_version", "is_mobile",
-                "is_tablet", "form_factor"]
+    req_caps = concat_cap_list.split(",")
     wm_client.set_requested_capabilities(req_caps)
 
     # ------------------------ Splunk service and index retrieval -------------------------------
@@ -99,7 +99,9 @@ try:
     else:
         new_index = splunk_indexes[dst_index]
         # new_index.refresh()
+        logger.info("-getting event count-")
         new_index_evt_count = new_index["totalEventCount"]
+        logger.info(new_index_evt_count)
         if not isinstance(new_index_evt_count, int):
             new_index_evt_count = int(new_index_evt_count)
         logger.info("Index " + dst_index + " retrieved")
@@ -112,12 +114,6 @@ try:
         logger.info("Index " + dst_index + " is already up to date with source index " + index_name +
                     " Exiting WURFL Microservice index enrichment script")
         sys.exit(0)
-
-    # load items. TODO: handle offset/pagination. It'd be better to load a group of events , copy them to a new index
-    #  and keep a checkpoint
-    # logger.debug("index type: " + str(type(src_index)))
-    # index_content = src_index.content
-    # logger.debug(str(index_content))
 
     rr = results.ResultsReader(service.jobs.export("search index=" + index_name))
     for result in rr:

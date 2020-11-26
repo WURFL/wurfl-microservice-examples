@@ -34,8 +34,8 @@ try:
     ROOT_DIR = os.path.abspath(os.path.dirname(__file__))
     LOCAL_DIR = os.path.abspath(os.path.join(ROOT_DIR, '..', 'local'))
     DEFAULT_DIR = os.path.abspath(os.path.join(ROOT_DIR, '..', 'default'))
-    local_inputs_file = os.path.join(LOCAL_DIR, 'inputs.conf')
-    default_inputs_file = os.path.join(DEFAULT_DIR, 'inputs.conf')
+    local_inputs_file = os.path.join(LOCAL_DIR, 'inputs.conf.spec')
+    default_inputs_file = os.path.join(DEFAULT_DIR, 'inputs.conf.spec')
     config = configparser.ConfigParser()
     try:
         config.read(open(local_inputs_file))

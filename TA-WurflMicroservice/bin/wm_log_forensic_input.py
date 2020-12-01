@@ -4,7 +4,6 @@ import os
 import sys
 import json
 import time
-from time import sleep
 
 from splunklib.client import connect
 import splunklib.results as results
@@ -88,6 +87,7 @@ try:
     if checkpoint_index_name not in splunk_indexes:
         checkpoint_index = splunk_indexes.create(checkpoint_index_name)
         checkpoint_index.refresh()
+        logger.info("checkpoint index created")
         for f_name in file_list:
             checkpoint_data[f_name] = 0
         checkpoint_index.submit(event=json.dumps(checkpoint_data), host="localhost",
@@ -102,7 +102,7 @@ try:
                 logger.debug('%s: %s', check_result.type, check_result.message)
             elif isinstance(check_result, dict):
                 # Normal events are returned as dicts
-                logger.debug("--------------------------------------------")
+                logger.info("--------------------------------------------1")
                 item = check_result["_raw"]
                 checkpoint_data = json.loads(item)
                 logger.info(checkpoint_data)
@@ -128,16 +128,26 @@ try:
     # For each configured file, get checkpoint and start reading data from that point on
     for filename in file_list:
         checkpoint = checkpoint_data[filename]
+        logger.info("checkpoint value: " + str(checkpoint))
         f = open(filename)
         line_count = 0
         line = f.readline()
-        while line:
-            line = f.readline()
-            if line_count > checkpoint:
-                logger.info("Performing detection on log line " + str(line_count))
+        logger.info(line)
+        while len(line) > 0:
+            if line.startswith('-'):
+                logger.info("line starts with -")
+                line_count += 1
+                logger.info("count line " + str(line_count))
+                line = f.readline()
+                continue
+            elif line_count > checkpoint:
+                logger.info("line starts with +")
+                logger.info("Performing detection on line " + str(line_count))
                 tokens = line.split('|')
                 host = "-"
                 headers = dict()
+                headers["forensic_id"] = tokens[0]
+                headers["request"] = tokens[1]
                 headers["_raw"] = line
                 for tok in tokens:
                     if ':' in tok:
@@ -152,16 +162,19 @@ try:
                         selected_caps[rc] = device.capabilities[rc]
                     selected_caps["wurfl_id"] = device.capabilities["wurfl_id"]
                     new_index.submit(event=json.dumps(selected_caps), host=host,
-                                     source="apache_test", sourcetype="wurfl_enriched_log_forensic")
-                    logger.debug("new event submitted")
+                                     source=filename, sourcetype="wurfl_enriched_log_forensic")
+                    logger.info("new event submitted")
                     new_index.refresh()
-            line_count += 1
-            checkpoint_data[filename] = line_count
-            # Delete, recreate and write new checkpoint index
-            checkpoint_index.delete()
-            time.sleep(1)
-            checkpoint_index = splunk_indexes.create(checkpoint_index_name)
-            checkpoint_index.submit(event=json.dumps(checkpoint_data), host="localhost",
+                    line_count += 1
+                    line = f.readline()
+                checkpoint_data[filename] = line_count
+                # Delete, recreate and write new checkpoint index
+                checkpoint_index.delete()
+                logger.info("checkpoint index deleted")
+                time.sleep(1)
+                checkpoint_index = splunk_indexes.create(checkpoint_index_name)
+                logger.info("checkpoint index recreated")
+                checkpoint_index.submit(event=json.dumps(checkpoint_data), host="localhost",
                                     source="wm_log_forensic_script", sourcetype="scripted_input")
 
 

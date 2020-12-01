@@ -146,23 +146,26 @@ try:
                 tokens = line.split('|')
                 host = "-"
                 headers = dict()
-                headers["forensic_id"] = tokens[0]
-                headers["request"] = tokens[1]
-                headers["_raw"] = line
+                out_data = dict()
+                out_data["forensic_id"] = tokens[0]
+                out_data["request"] = tokens[1]
+                out_data["_raw"] = line
                 for tok in tokens:
                     if ':' in tok:
                         header = tok.split(':')
                         if header[0] == "Host":
                             host = header[1]
                         headers[header[0]] = header[1]
+                        # we also write headers on output data
+                        out_data[header[0]] = header[1]
                 device = wm_client.lookup_headers(headers)
                 if device is not None:
-                    selected_caps = dict()
+
                     for rc in req_caps:
-                        selected_caps[rc] = device.capabilities[rc]
-                    selected_caps["wurfl_id"] = device.capabilities["wurfl_id"]
-                    new_index.submit(event=json.dumps(selected_caps), host=host,
-                                     source=filename, sourcetype="wurfl_enriched_log_forensic")
+                        out_data[rc] = device.capabilities[rc]
+                    out_data["wurfl_id"] = device.capabilities["wurfl_id"]
+                    new_index.submit(event=json.dumps(out_data), host=host,
+                                     source=filename, sourcetype="mod_log_forensic")
                     logger.info("new event submitted")
                     new_index.refresh()
                     line_count += 1
@@ -176,6 +179,9 @@ try:
                 logger.info("checkpoint index recreated")
                 checkpoint_index.submit(event=json.dumps(checkpoint_data), host="localhost",
                                     source="wm_log_forensic_script", sourcetype="scripted_input")
+            else:
+                logger.info("No new event to send to index %s. Exiting.", new_index.name)
+                exit(0)
 
 
 except WmClientError as e:

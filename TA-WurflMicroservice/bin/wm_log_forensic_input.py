@@ -134,59 +134,68 @@ try:
         line = f.readline()
         logger.info(line)
         while len(line) > 0:
-            if line.startswith('-'):
-                logger.info("line starts with -")
-                line_count += 1
-                logger.info("count line " + str(line_count))
+
+            # already read, just read another line and skip processing
+            if line_count < checkpoint:
                 line = f.readline()
-                continue
-            elif line_count > checkpoint:
-                logger.info("line starts with +")
-                logger.info("Performing detection on line " + str(line_count))
-                tokens = line.split('|')
-                host = "-"
-                headers = dict()
-                out_data = dict()
-                out_data["forensic_id"] = tokens[0]
-                out_data["request"] = tokens[1]
-                out_data["_raw"] = line
-                for tok in tokens:
-                    if ':' in tok:
-                        header = tok.split(':')
-                        if header[0] == "Host":
-                            host = header[1]
-                        if header[0] == "User-Agent":
-                            out_data["useragent"] = header[1]
-                            headers[header[0]] = header[1]
-                        else:
-                            headers[header[0]] = header[1]
-                            # we also write headers on output data
-                            out_data[header[0]] = header[1]
-                device = wm_client.lookup_headers(headers)
-                if device is not None:
-
-                    for rc in req_caps:
-                        out_data[rc] = device.capabilities[rc]
-                    out_data["wurfl_id"] = device.capabilities["wurfl_id"]
-                    new_index.submit(event=json.dumps(out_data), host=host,
-                                     source=filename, sourcetype="mod_log_forensic")
-                    logger.info("new event submitted")
-                    new_index.refresh()
-                    line_count += 1
-                    line = f.readline()
-                checkpoint_data[filename] = line_count
-                # Delete, recreate and write new checkpoint index
-                checkpoint_index.delete()
-                logger.info("checkpoint index deleted")
-                time.sleep(1)
-                checkpoint_index = splunk_indexes.create(checkpoint_index_name)
-                logger.info("checkpoint index recreated")
-                checkpoint_index.submit(event=json.dumps(checkpoint_data), host="localhost",
-                                    source="wm_log_forensic_script", sourcetype="scripted_input")
+                line_count += 1
+            # unread line, let's process it
             else:
-                logger.info("No new event to send to index %s. Exiting.", new_index.name)
-                exit(0)
+                # forensic log lines starting with '-' only contain the forensic_id, nothing to do here, skip
+                if line.startswith('-'):
+                    logger.info("line starts with -")
+                    line_count += 1
+                    logger.info("count line " + str(line_count))
+                    line = f.readline()
+                    continue
+                else:
+                    # here are the data, lets' read it and perform a device detection
+                    logger.info("line starts with +")
+                    logger.info("Performing detection on line " + str(line_count))
+                    tokens = line.split('|')
+                    host = "-"
+                    headers = dict()
+                    out_data = dict()
+                    out_data["forensic_id"] = tokens[0]
+                    out_data["request"] = tokens[1]
+                    out_data["_raw"] = line
+                    for tok in tokens:
+                        if ':' in tok:
+                            header = tok.split(':')
+                            if header[0] == "Host":
+                                host = header[1]
+                            if header[0] == "User-Agent":
+                                out_data["useragent"] = header[1]
+                                headers[header[0]] = header[1]
+                            else:
+                                headers[header[0]] = header[1]
+                                # we also write headers on output data
+                                out_data[header[0]] = header[1]
+                    device = wm_client.lookup_headers(headers)
+                    if device is not None:
 
+                        for rc in req_caps:
+                            out_data[rc] = device.capabilities[rc]
+                        out_data["wurfl_id"] = device.capabilities["wurfl_id"]
+                        new_index.submit(event=json.dumps(out_data), host=host,
+                                         source=filename, sourcetype="mod_log_forensic")
+                        logger.info("new event submitted")
+                        new_index.refresh()
+                        line_count += 1
+                        line = f.readline()
+                    checkpoint_data[filename] = line_count
+                    # Delete, recreate and write new checkpoint index
+                    checkpoint_index.delete()
+                    logger.info("checkpoint index deleted")
+                    # we must give a short time to cleanup the index before re-creating it
+                    time.sleep(0.05)
+                    checkpoint_index = splunk_indexes.create(checkpoint_index_name)
+                    logger.info("checkpoint index recreated")
+                    checkpoint_index.submit(event=json.dumps(checkpoint_data), host="localhost",
+                                            source="wm_log_forensic_script", sourcetype="scripted_input")
+
+        logger.info("No new event to send to index %s. Exiting.", new_index.name)
+        exit(0)
 
 except WmClientError as e:
     logger.error(e.message)

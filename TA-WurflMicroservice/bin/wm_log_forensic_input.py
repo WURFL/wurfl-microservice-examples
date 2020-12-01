@@ -155,9 +155,13 @@ try:
                         header = tok.split(':')
                         if header[0] == "Host":
                             host = header[1]
-                        headers[header[0]] = header[1]
-                        # we also write headers on output data
-                        out_data[header[0]] = header[1]
+                        if header[0] == "User-Agent":
+                            out_data["useragent"] = header[1]
+                            headers[header[0]] = header[1]
+                        else:
+                            headers[header[0]] = header[1]
+                            # we also write headers on output data
+                            out_data[header[0]] = header[1]
                 device = wm_client.lookup_headers(headers)
                 if device is not None:
 

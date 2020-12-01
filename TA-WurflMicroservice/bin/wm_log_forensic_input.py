@@ -102,7 +102,6 @@ try:
                 logger.debug('%s: %s', check_result.type, check_result.message)
             elif isinstance(check_result, dict):
                 # Normal events are returned as dicts
-                logger.info("--------------------------------------------1")
                 item = check_result["_raw"]
                 checkpoint_data = json.loads(item)
                 logger.info(checkpoint_data)
@@ -127,9 +126,12 @@ try:
 
     # For each configured file, get checkpoint and start reading data from that point on
     for filename in file_list:
-        checkpoint = checkpoint_data[filename]
+        complete_file_name = os.path.join(src_file_system, filename)
+        checkpoint = 0
+        if complete_file_name in checkpoint_data:
+            checkpoint = checkpoint_data[complete_file_name]
         logger.info("checkpoint value: " + str(checkpoint))
-        f = open(filename)
+        f = open(complete_file_name)
         line_count = 0
         line = f.readline()
         logger.info(line)
@@ -178,12 +180,12 @@ try:
                             out_data[rc] = device.capabilities[rc]
                         out_data["wurfl_id"] = device.capabilities["wurfl_id"]
                         new_index.submit(event=json.dumps(out_data), host=host,
-                                         source=filename, sourcetype="mod_log_forensic")
+                                         source=complete_file_name, sourcetype="mod_log_forensic")
                         logger.info("new event submitted")
                         new_index.refresh()
                         line_count += 1
                         line = f.readline()
-                    checkpoint_data[filename] = line_count
+                    checkpoint_data[complete_file_name] = line_count
                     # Delete, recreate and write new checkpoint index
                     checkpoint_index.delete()
                     logger.info("checkpoint index deleted")
@@ -193,9 +195,10 @@ try:
                     logger.info("checkpoint index recreated")
                     checkpoint_index.submit(event=json.dumps(checkpoint_data), host="localhost",
                                             source="wm_log_forensic_script", sourcetype="scripted_input")
+        logger.info("No new event to send from file %s.", complete_file_name)
 
-        logger.info("No new event to send to index %s. Exiting.", new_index.name)
-        exit(0)
+    logger.info("No new event to send to index %s. Exiting.", new_index.name)
+    exit(0)
 
 except WmClientError as e:
     logger.error(e.message)

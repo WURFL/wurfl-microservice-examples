@@ -27,15 +27,11 @@ logger = logging.getLogger('wm_client')
 
 
 def should_write_checkout(chk_point_row_span, l_count):
-    logger.info("Entering should_write_checkout function")
+    logger.debug("Entering should_write_checkout function")
     if chk_point_row_span == 0:
-        logger.info("SWC - Returning true 1")
         return True
-    logger.info("%d mod %d", l_count, checkpoint_row_span)
     if l_count % chk_point_row_span == 0:
-        logger.info("SWC -  Returning true 2")
         return True
-    logger.info("SWC - Returning false")
     return False
 
 
@@ -45,7 +41,7 @@ def write_checkpoints(cp_index, cp_index_name, cp_data):
     # we must give a short time to cleanup the index before re-creating it
     time.sleep(0.05)
     cp_index = splunk_indexes.create(cp_index_name)
-    logger.info("checkpoint index recreated")
+    logger.debug("checkpoint index recreated")
     checkpoint_index.submit(event=json.dumps(cp_data), host="localhost",
                             source="wm_log_forensic_script", sourcetype="scripted_input")
     logger.info("Written checkpoint for checkpoint data %s", cp_data)
@@ -68,7 +64,7 @@ try:
         logger.warning("No config file found in local directory: " + LOCAL_DIR)
 
     try:
-        logger.info(default_inputs_file)
+        logger.debug(default_inputs_file)
         config = configparser.RawConfigParser()
         logger.info("File read: " + str(config.read_file(open(default_inputs_file))))
     except IOError:
@@ -77,7 +73,7 @@ try:
         logger.error("Offending path: " + default_inputs_file)
         sys.exit(1)
 
-    logger.info("Sections: " + str(config.sections()))
+    logger.debug("Sections: " + str(config.sections()))
     user = config.get("wurfl_log_forensic_input", "user")
     enc_pwd = config.get("wurfl_log_forensic_input", "pwd")
     pwd_bytes = base64.b64decode(enc_pwd)
@@ -98,7 +94,7 @@ try:
         file_list = os.listdir(src_file_system)
     else:
         file_list.append(src_file_system)
-    logger.info(file_list)
+    logger.debug(file_list)
 
     # ------------------------ WM client creation and setup --------------------------------------
     wm_client = WmClient.create("http", wm_host, wm_port, "")
@@ -115,7 +111,7 @@ try:
     if checkpoint_index_name not in splunk_indexes:
         checkpoint_index = splunk_indexes.create(checkpoint_index_name)
         checkpoint_index.refresh()
-        logger.info("checkpoint index created")
+        logger.debug("checkpoint index created")
         for f_name in file_list:
             checkpoint_data[f_name] = 0
         checkpoint_index.submit(event=json.dumps(checkpoint_data), host="localhost",
@@ -146,11 +142,11 @@ try:
     else:
         new_index = splunk_indexes[dst_index]
         new_index_evt_count = new_index["totalEventCount"]
-        logger.info(new_index_evt_count)
+        logger.debug(new_index_evt_count)
         if not isinstance(new_index_evt_count, int):
             new_index_evt_count = int(new_index_evt_count)
         logger.info("Index " + dst_index + " retrieved")
-        logger.info(new_index_evt_count)
+        logger.debug(new_index_evt_count)
 
     # For each configured file, get checkpoint and start reading data from that point on
     for filename in file_list:
@@ -158,11 +154,11 @@ try:
         checkpoint = 0
         if complete_file_name in checkpoint_data:
             checkpoint = checkpoint_data[complete_file_name]
-        logger.info("checkpoint value: " + str(checkpoint))
+        logger.debug("checkpoint value: " + str(checkpoint))
         f = open(complete_file_name)
         line_count = 0
         line = f.readline()
-        logger.info(line)
+        logger.debug(line)
         while len(line) > 0:
 
             # already read, just read another line and skip processing
@@ -173,17 +169,17 @@ try:
             else:
                 # forensic log lines starting with '-' only contain the forensic_id, nothing to do here, skip
                 if line.startswith('-'):
-                    logger.info("line starts with -")
+                    logger.debug("line starts with -")
                     line_count += 1
-                    logger.info("count line " + str(line_count))
+                    logger.debug("count line " + str(line_count))
                     line = f.readline()
                     if should_write_checkout(int(checkpoint_row_span), line_count):
                         checkpoint_index = write_checkpoints(checkpoint_index, checkpoint_index_name, checkpoint_data)
                     continue
                 else:
                     # here are the data, lets' read it and perform a device detection
-                    logger.info("line starts with +")
-                    logger.info("Performing detection on line " + str(line_count))
+                    logger.debug("line starts with +")
+                    logger.debug("Performing detection on line " + str(line_count))
                     tokens = line.split('|')
                     host = "-"
                     headers = dict()
@@ -211,7 +207,7 @@ try:
                         out_data["wurfl_id"] = device.capabilities["wurfl_id"]
                         new_index.submit(event=json.dumps(out_data), host=host,
                                          source=complete_file_name, sourcetype="mod_log_forensic")
-                        logger.info("new event submitted")
+                        logger.debug("new event submitted")
                         new_index.refresh()
                         line_count += 1
                         line = f.readline()

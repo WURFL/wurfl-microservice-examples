@@ -21,3 +21,4 @@ dst_index = wurfl_forensic
 wm_host = localhost
 wm_port = 8080
 capabilities = brand_name,complete_device_name,device_os,device_os_version,form_factor,is_mobile,is_tablet
+checkpoint_row_span = 500

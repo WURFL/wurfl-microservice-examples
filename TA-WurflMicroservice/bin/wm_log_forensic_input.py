@@ -25,6 +25,33 @@ wm_client = None
 logging.basicConfig(filename=logfile, level=logging.INFO, format=LOG_FORMAT)
 logger = logging.getLogger('wm_client')
 
+
+def should_write_checkout(chk_point_row_span, l_count):
+    logger.info("Entering should_write_checkout function")
+    if chk_point_row_span == 0:
+        logger.info("SWC - Returning true 1")
+        return True
+    logger.info("%d mod %d", l_count, checkpoint_row_span)
+    if l_count % chk_point_row_span == 0:
+        logger.info("SWC -  Returning true 2")
+        return True
+    logger.info("SWC - Returning false")
+    return False
+
+
+def write_checkpoints(cp_index, cp_index_name, cp_data):
+    cp_index.delete()
+    logger.info("checkpoint index deleted")
+    # we must give a short time to cleanup the index before re-creating it
+    time.sleep(0.05)
+    cp_index = splunk_indexes.create(cp_index_name)
+    logger.info("checkpoint index recreated")
+    checkpoint_index.submit(event=json.dumps(cp_data), host="localhost",
+                            source="wm_log_forensic_script", sourcetype="scripted_input")
+    logger.info("Written checkpoint for checkpoint data %s", cp_data)
+    return cp_index
+
+
 try:
     # ------------------------ Splunk service and index retrieval -------------------------------
     logger.debug("-------------------------------------- STARTING EXECUTION ---------------------------------------")
@@ -62,6 +89,7 @@ try:
     src_file_system = config.get("wurfl_log_forensic_input", "src_fs")
     dst_index = config.get("wurfl_log_forensic_input", "dst_index")
     concat_cap_list = config.get("wurfl_log_forensic_input", "capabilities")
+    checkpoint_row_span = config.get("wurfl_log_forensic_input", "checkpoint_row_span")
     logger.debug("--- LOG FORENSIC: CONFIGURATION LOADED ----")
     file_list = []
     # check if file system element exists and, if its a directory, get all file list
@@ -149,6 +177,8 @@ try:
                     line_count += 1
                     logger.info("count line " + str(line_count))
                     line = f.readline()
+                    if should_write_checkout(int(checkpoint_row_span), line_count):
+                        checkpoint_index = write_checkpoints(checkpoint_index, checkpoint_index_name, checkpoint_data)
                     continue
                 else:
                     # here are the data, lets' read it and perform a device detection
@@ -185,17 +215,12 @@ try:
                         new_index.refresh()
                         line_count += 1
                         line = f.readline()
-                    checkpoint_data[complete_file_name] = line_count
-                    # Delete, recreate and write new checkpoint index
-                    checkpoint_index.delete()
-                    logger.info("checkpoint index deleted")
-                    # we must give a short time to cleanup the index before re-creating it
-                    time.sleep(0.05)
-                    checkpoint_index = splunk_indexes.create(checkpoint_index_name)
-                    logger.info("checkpoint index recreated")
-                    checkpoint_index.submit(event=json.dumps(checkpoint_data), host="localhost",
-                                            source="wm_log_forensic_script", sourcetype="scripted_input")
-        logger.info("No new event to send from file %s.", complete_file_name)
+                        checkpoint_data[complete_file_name] = line_count
+                        # Delete, recreate and write new checkpoint index
+                        if should_write_checkout(int(checkpoint_row_span), line_count):
+                            checkpoint_index = write_checkpoints(checkpoint_index, checkpoint_index_name, checkpoint_data)
+        logger.info("No new event to send from file %s. Writing last checkpoint", complete_file_name)
+        write_checkpoints(checkpoint_index, checkpoint_index_name, checkpoint_data)
 
     logger.info("No new event to send to index %s. Exiting.", new_index.name)
     exit(0)

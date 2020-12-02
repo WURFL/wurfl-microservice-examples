@@ -109,8 +109,6 @@ try:
 
     # ------------------------ Splunk service and index retrieval -------------------------------
     service = connect(host=splunk_host, port=splunk_port, username=user, password=pwd)
-    # workaround for "Must use user context of 'nobody' when interacting with collection configurations" error message
-    service.namespace['owner'] = 'Nobody'
     splunk_indexes = service.indexes
     # Verify if checkpoint index exists. If not, create it
     checkpoint_data = {}

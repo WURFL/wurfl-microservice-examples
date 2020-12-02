@@ -10,22 +10,28 @@ import splunklib.results as results
 from wmclient import WmClient, WmClientError
 
 py_version = sys.version
+# config parser lib name has been changed from version 2 to version 3 of python,
+# so we need to dinamically require it at runtime
 legacy_python = py_version.startswith('2')
 if legacy_python:
     import ConfigParser
 else:
     import configparser
 
+# log file configuration
 splunk_base_dir = os.environ.get("SPLUNK_HOME")
 logfile = splunk_base_dir + '/var/log/splunk/wm_log_forensic_input.log'
-checkpoint_index_name = 'wm_forensic_checkpoint'
 LOG_FORMAT = '%(asctime)s %(levelname)s %(message)s'
 wm_client = None
-# change level to error when done
+# log error leve config
 logging.basicConfig(filename=logfile, level=logging.INFO, format=LOG_FORMAT)
 logger = logging.getLogger('wm_client')
 
+checkpoint_index_name = 'wm_forensic_checkpoint'
 
+
+# this function returns true if checkpoint data must be written on their index
+# according to checkpoint configuration
 def should_write_checkout(chk_point_row_span, l_count):
     logger.debug("Entering should_write_checkout function")
     if chk_point_row_span == 0:
@@ -35,10 +41,11 @@ def should_write_checkout(chk_point_row_span, l_count):
     return False
 
 
+# writes checkpoints data to their specific index
 def write_checkpoints(cp_index, cp_index_name, cp_data):
     cp_index.delete()
     logger.info("checkpoint index deleted")
-    # we must give a short time to cleanup the index before re-creating it
+    # we must give a short time to cleanup the index before re-creating it (sleep time is in seconds)
     time.sleep(0.05)
     cp_index = splunk_indexes.create(cp_index_name)
     logger.debug("checkpoint index recreated")
@@ -51,7 +58,6 @@ def write_checkpoints(cp_index, cp_index_name, cp_data):
 try:
     # ------------------------ Splunk service and index retrieval -------------------------------
     logger.debug("-------------------------------------- STARTING EXECUTION ---------------------------------------")
-    # Load configuration
     ROOT_DIR = os.path.abspath(os.path.dirname(__file__))
     LOCAL_DIR = os.path.abspath(os.path.join(ROOT_DIR, '..', 'local'))
     DEFAULT_DIR = os.path.abspath(os.path.join(ROOT_DIR, '..', 'default'))
@@ -72,7 +78,7 @@ try:
                      ", exiting WURFL Microservice index enrichment script")
         logger.error("Offending path: " + default_inputs_file)
         sys.exit(1)
-
+    # Load script configuration
     logger.debug("Sections: " + str(config.sections()))
     user = config.get("wurfl_log_forensic_input", "user")
     enc_pwd = config.get("wurfl_log_forensic_input", "pwd")
@@ -193,6 +199,7 @@ try:
                             if header[0] == "Host":
                                 host = header[1]
                             if header[0] == "User-Agent":
+                                # we use the useragent key to comply with the way access_combined input does
                                 out_data["useragent"] = header[1]
                                 headers[header[0]] = header[1]
                             else:
@@ -205,6 +212,7 @@ try:
                         for rc in req_caps:
                             out_data[rc] = device.capabilities[rc]
                         out_data["wurfl_id"] = device.capabilities["wurfl_id"]
+                        # submit event to destination index
                         new_index.submit(event=json.dumps(out_data), host=host,
                                          source=complete_file_name, sourcetype="mod_log_forensic")
                         logger.debug("new event submitted")
@@ -214,7 +222,8 @@ try:
                         checkpoint_data[complete_file_name] = line_count
                         # Delete, recreate and write new checkpoint index
                         if should_write_checkout(int(checkpoint_row_span), line_count):
-                            checkpoint_index = write_checkpoints(checkpoint_index, checkpoint_index_name, checkpoint_data)
+                            checkpoint_index = write_checkpoints(checkpoint_index, checkpoint_index_name,
+                                                                 checkpoint_data)
         logger.info("No new event to send from file %s. Writing last checkpoint", complete_file_name)
         write_checkpoints(checkpoint_index, checkpoint_index_name, checkpoint_data)
 

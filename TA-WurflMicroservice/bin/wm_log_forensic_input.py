@@ -87,6 +87,7 @@ try:
         dst_index = config.get("wurfl_log_forensic_input", "dst_index")
         concat_cap_list = config.get("wurfl_log_forensic_input", "capabilities")
         checkpoint_row_span = config.get("wurfl_log_forensic_input", "checkpoint_row_span")
+        wm_cache_size = config.get("wurfl_log_forensic_input", "wm_cache_size")
     except Exception as ke:
         logger.error("Error loading script configuration: %s. Exiting", ke.message)
         exit(1)
@@ -110,6 +111,7 @@ try:
     wm_client = WmClient.create("http", wm_host, wm_port, "")
     req_caps = concat_cap_list.split(",")
     wm_client.set_requested_capabilities(req_caps)
+    wm_client.set_cache_size(int(wm_cache_size))
 
     # ------------------------ Splunk service and index retrieval -------------------------------
     service = connect(host=splunk_host, port=splunk_port, username=user, password=pwd)

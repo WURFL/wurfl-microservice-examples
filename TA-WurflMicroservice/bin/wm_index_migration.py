@@ -64,6 +64,7 @@ try:
         index_name = config.get("wurfl_index_migration", "src_index")
         dst_index = config.get("wurfl_index_migration", "dst_index")
         concat_cap_list = config.get("wurfl_index_migration", "capabilities")
+        wm_cache_size = config.get("wurfl_index_migration", "wm_cache_size")
         logger.debug("--- CONFIGURATION LOADED ----")
     # we must use a broad exception because specialized one is different between Python 2.7 and 3.x
     except Exception as ex:
@@ -73,6 +74,7 @@ try:
     wm_client = WmClient.create("http", wm_host, wm_port, "")
     req_caps = concat_cap_list.split(",")
     wm_client.set_requested_capabilities(req_caps)
+    wm_client.set_cache_size(int(wm_cache_size))
 
     # ------------------------ Splunk service and index retrieval -------------------------------
     service = connect(host=splunk_host, port=splunk_port, username=user, password=pwd)
@@ -87,9 +89,6 @@ try:
     src_index_evt_count = src_index["totalEventCount"]
     if not isinstance(src_index_evt_count, int):
         src_index_evt_count = int(src_index_evt_count)
-    # logger.debug("------ SRC INDEX TOTAL EVENTS")
-    # logger.debug(src_index_evt_count)
-    # logger.debug("------ SRC INDEX TOTAL EVENTS")
 
     #  index exist, create new destination index, if it does not exist
     new_index = None
@@ -158,7 +157,7 @@ try:
             logger.debug("new event submitted")
             logger.info("Results count " + str(results_count))
     logger.info("Results count at scripts end: " + str(results_count))
-    logger.info("refreshing new index")
+    logger.debug("refreshing new index")
     new_index.refresh()
     sleep(10)
 except WmClientError as e:

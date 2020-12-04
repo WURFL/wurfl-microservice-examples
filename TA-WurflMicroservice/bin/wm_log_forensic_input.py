@@ -43,7 +43,7 @@ def write_checkpoints(cp_index, cp_index_name, cp_data):
     cp_index = splunk_indexes.create(cp_index_name)
     logger.debug("checkpoint index recreated")
     checkpoint_index.submit(event=json.dumps(cp_data), host="localhost",
-                            source="wm_log_forensic_script", sourcetype="scripted_input")
+                            source="mod_log_forensic", sourcetype="scripted_input")
     logger.info("Written checkpoint for checkpoint data %s", cp_data)
     return cp_index
 

@@ -1,5 +1,0 @@
-<form>
-  <label>ConfigurationSettings</label>
-  <description>Configuring the WURFL Microservice server</description>
-  <fieldset submitButton="true"></fieldset>
-</form>

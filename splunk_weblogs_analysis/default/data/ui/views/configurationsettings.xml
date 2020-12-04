@@ -1,5 +1,0 @@
-<form>
-  <label>ConfigurationSettings</label>
-  <description>Configuring the WURFLD file locations</description>
-  <fieldset submitButton="true"></fieldset>
-</form>

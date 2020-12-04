@@ -2,7 +2,7 @@
 
 This project contains scripts and default configurations 
 to use WURFL Microservice client to enrich input data that are saved into a Splunk index or
-or have to be loaded into Splunk from a log file.
+or have to be loaded into Splunk from a log file using a "scripted input".
 
  ### Prerequisites and dependencies
  

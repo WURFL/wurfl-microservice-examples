@@ -153,7 +153,7 @@ try:
             # logger.debug(item_dict)
             # ------------- Create an item to submit to index ----------------------------
             new_index.submit(event=json.dumps(item_dict), host=item_dict["host"],
-                             source="apache_test", sourcetype="wurfl_enriched_access_combined")
+                             source=src_index.name, sourcetype="wurfl_enriched_access_combined")
             logger.debug("new event submitted")
             logger.info("Results count " + str(results_count))
     logger.info("Results count at scripts end: " + str(results_count))

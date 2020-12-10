@@ -26,8 +26,8 @@ logging.basicConfig(filename=logfile, level=logging.INFO, format=LOG_FORMAT)
 logger = logging.getLogger('wm_client')
 
 
-def should_write_checkout(chk_point_row_span, l_count):
-    logger.debug("Entering should_write_checkout function")
+def should_write_checkpoint(chk_point_row_span, l_count):
+    logger.debug("Entering should_write_checkpoint function")
     if chk_point_row_span == 0:
         return True
     if l_count % chk_point_row_span == 0:
@@ -189,7 +189,7 @@ try:
                     line_count += 1
                     logger.debug("count line " + str(line_count))
                     line = f.readline()
-                    if should_write_checkout(int(checkpoint_row_span), line_count):
+                    if should_write_checkpoint(int(checkpoint_row_span), line_count):
                         checkpoint_index = write_checkpoints(checkpoint_index, checkpoint_index_name, checkpoint_data)
                     continue
                 else:
@@ -229,7 +229,7 @@ try:
                         line = f.readline()
                         checkpoint_data[complete_file_name] = line_count
                         # Delete, recreate and write new checkpoint index
-                        if should_write_checkout(int(checkpoint_row_span), line_count):
+                        if should_write_checkpoint(int(checkpoint_row_span), line_count):
                             checkpoint_index = write_checkpoints(checkpoint_index, checkpoint_index_name, checkpoint_data)
         logger.info("No new event to send from file %s. Writing last checkpoint", complete_file_name)
         write_checkpoints(checkpoint_index, checkpoint_index_name, checkpoint_data)

@@ -12,10 +12,10 @@ or have to be loaded into Splunk from a log file.
  
  They depend on the following libraries:
     
-    - pylru (1.2.0-py2.7)
-    - urllib3
+    - pylru 1.2.0 or above
+    - urllib3 1.25.11 or above
     - wmclient 2.2.0 or above (https://pypi.org/project/wmclient/)
-    - splunklib
+    - splunklib 1.6.14 or above
     
    This project assumes that you have a basic knowledge of Splunk and [scripted inputs](https://docs.splunk.com/Documentation/SplunkCloud/latest/AdvancedDev/ScriptSetup)
 
@@ -27,7 +27,8 @@ using this code as reference for WURFL Microservice integration on Splunk.
 
 ### Add-on installation
 Install this add-on by simply copying all the whole project directory under `$SPLUNK_HOME/etc/apps`
-You'll have to download and add all the dependencies under `$SPLUNK_HOME/etc/apps/TA-WurflMicroservice/bin` 
+You can download and install the dependencies on your app directory using the command
+`pip install  -r $SPLUNK_HOME/etc/apps/TA-wurfl-microservice/bin/requirements.txt --target $SPLUNK_HOME/etc/apps/TA-wurfl-microservice/bin`
 
 ### Basic script configuration
 The file `default/inputs.conf` contains the basic configurations for both `wm_index_migration` and `wm_log_forensic_input`.

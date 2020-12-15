@@ -19,6 +19,7 @@ else:
     import configparser  # 3.x
 
 splunk_base_dir = os.environ.get("SPLUNK_HOME")
+lock_file_path = splunk_base_dir + '/var/log/splunk/wm_index_migration.lock'
 logfile = splunk_base_dir + '/var/log/splunk/wm_index_migration.log'
 LOG_FORMAT = '%(asctime)s %(levelname)s %(message)s'
 wm_client = None
@@ -27,6 +28,24 @@ logging.basicConfig(filename=logfile, level=logging.INFO, format=LOG_FORMAT)
 logger = logging.getLogger('wm_client')
 logger.info("Python version: " + py_version)
 logger.info("Python legacy version: " + str(legacy_python))
+
+
+def create_lock_file():
+    try:
+        f = open(lock_file_path, "w+")
+        f.write("This lock file has been created automatically. DO NOT DELETE manually")
+        logger.info("lock file created")
+
+    except Exception as e:
+        logger.info("Unable to create lock file: %s", e.message)
+
+
+def delete_lock_file():
+    if os.path.exists(lock_file_path):
+        os.remove(lock_file_path)
+        logger.info("wm_index_migration lock file removed")
+    else:
+        logger.warning("wm_index_migration lock file was not here to delete")
 
 
 def should_write_checkpoint(chk_point_row_span, l_count):
@@ -42,7 +61,7 @@ def write_checkpoints(cp_index, cp_index_name, cp_data):
     cp_index.delete()
     logger.info("checkpoint index deleted")
     # we must give a short time to cleanup the index before re-creating it
-    time.sleep(0.05)
+    time.sleep(1)
     cp_index = splunk_indexes.create(cp_index_name)
     logger.debug("checkpoint index recreated")
     cp_index.submit(event=json.dumps(cp_data), host="localhost",
@@ -59,6 +78,14 @@ def convert_time_to_timestamp(p_time):
 try:
     # ------------------------ Splunk service and index retrieval -------------------------------
     logger.debug("-------------------------------------- STARTING EXECUTION ---------------------------------------")
+
+    # check lock file as first thing, if it exists, script has been called twice
+    if os.path.exists("wm_index_migration.lock"):
+        logger.warning("wm_index_migration is already running. It can only run one script instance at the time. "
+                       "Exiting current script instance")
+        exit(1)
+    create_lock_file()
+
     checkpoint_index_name = 'wm_index_migration_checkpoint'
     # Load configuration
     ROOT_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -80,6 +107,7 @@ try:
         logger.error("No config file found in default directory: " + DEFAULT_DIR +
                      ", exiting WURFL Microservice index enrichment script")
         logger.error("Offending path: " + default_inputs_file)
+        delete_lock_file()
         sys.exit(1)
     try:
         logger.info("Sections: " + str(config.sections()))
@@ -101,6 +129,8 @@ try:
     # we must use a broad exception because specialized one is different between Python 2.7 and 3.x
     except Exception as ex:
         logger.error("An error occurred while reading configuration file, likely a wrong or missing key")
+        delete_lock_file()
+        exit(1)
 
     # ------------------------ WM client creation and setup --------------------------------------
     wm_client = WmClient.create("http", wm_host, wm_port, "")
@@ -172,12 +202,11 @@ try:
         # set search boundaries
         end_timestamp = time.time() - int(log_arrival_delay)
         str_end_timestamp = str(end_timestamp)
-        # start_timestamp = str(convert_time_to_timestamp(checkpoint_data[src_index.name]))
         start_timestamp = checkpoint_data[src_index.name]
 
         search_string = "search index= {} _indextime>{} _indextime<{} | reverse".format(src_index.name,
-                                                                                             start_timestamp,
-                                                                                             end_timestamp)
+                                                                                        start_timestamp,
+                                                                                        end_timestamp)
 
     # before proceeding to enrich src_index events, let's check if there's need to do another search
     logger.info(search_string)
@@ -195,23 +224,25 @@ try:
             item = result["_raw"]
             # current_timestamp = result["_time"]
             current_timestamp = result["_indextime"]
-            # logger.info(current_timestamp)
             parts = [
-                r'(?P<host>\S+)',  # host %h
+                r'(?P<host>\S+?)',  # host %h
                 r'\S+',  # indent %l (unused)
-                r'(?P<user>\S+)',  # user %u
+                r'(?P<user>\S+?)',  # user %u
                 r'\[(?P<time>.+)\]',  # time %t
-                r'"(?P<request>.*)"',  # request "%r"
-                r'(?P<status>[0-9]+)',  # status %>s
+                r'"(?P<request>.*?)"',  # request "%r"
+                r'(?P<status>[0-9]+?)',  # status %>s
                 r'(?P<size>\S+)',  # size %b (careful, can be '-')
-                r'"(?P<referrer>.*)"',  # referrer "%{Referer}i"
-                r'"(?P<useragent>.*)"',  # user agent "%{User-agent}i"
+                r'"(?P<referrer>.*?)"',  # referrer "%{Referer}i"
+                r'"(?P<useragent>.*?)"',  # user agent "%{User-agent}i"
             ]
-            pattern = re.compile(r'\s+'.join(parts) + r'\s*\Z')
-            item_dict = pattern.match(item).groupdict()
-            user_agent = item_dict["useragent"]
-            # logger.debug(user_agent)
-            # logger.debug("--------------------------------------------")
+            try:
+                pattern = re.compile(r'\s+'.join(parts) + r'\s*\Z')
+                item_dict = pattern.match(item).groupdict()
+                user_agent = item_dict["useragent"]
+            except Exception:
+                logger.error("Unable to parse log line %s, possibly a wrong access_combined format, skipping import", item)
+                continue
+
             device = wm_client.lookup_useragent(user_agent)
             # ------------- Enrich item with WURFL data ----------------------------------
             for rc in req_caps:
@@ -235,5 +266,6 @@ try:
 except WmClientError as e:
     logger.error(e.message)
 finally:
+    delete_lock_file()
     if wm_client is not None:
         wm_client.destroy()

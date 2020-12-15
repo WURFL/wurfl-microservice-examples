@@ -1,10 +1,11 @@
 import base64
+from email import utils
 import logging
 import os
 import sys
 import re
 import json
-from time import sleep
+import time
 
 from splunklib.client import connect
 import splunklib.results as results
@@ -27,9 +28,38 @@ logger = logging.getLogger('wm_client')
 logger.info("Python version: " + py_version)
 logger.info("Python legacy version: " + str(legacy_python))
 
+
+def should_write_checkpoint(chk_point_row_span, l_count):
+    logger.debug("Entering should_write_checkout function")
+    if chk_point_row_span == 0:
+        return True
+    if l_count % chk_point_row_span == 0:
+        return True
+    return False
+
+
+def write_checkpoints(cp_index, cp_index_name, cp_data):
+    cp_index.delete()
+    logger.info("checkpoint index deleted")
+    # we must give a short time to cleanup the index before re-creating it
+    time.sleep(0.05)
+    cp_index = splunk_indexes.create(cp_index_name)
+    logger.debug("checkpoint index recreated")
+    cp_index.submit(event=json.dumps(cp_data), host="localhost",
+                    source="wm_log_forensic_script", sourcetype="scripted_input")
+    logger.info("Written checkpoint for checkpoint data %s", cp_data)
+    return cp_index
+
+
+def convert_time_to_timestamp(p_time):
+    d = utils.parsedate_tz(p_time)
+    return time.mktime(d)
+
+
 try:
     # ------------------------ Splunk service and index retrieval -------------------------------
     logger.debug("-------------------------------------- STARTING EXECUTION ---------------------------------------")
+    checkpoint_index_name = 'wm_index_migration_checkpoint'
     # Load configuration
     ROOT_DIR = os.path.abspath(os.path.dirname(__file__))
     LOCAL_DIR = os.path.abspath(os.path.join(ROOT_DIR, '..', 'local'))
@@ -65,6 +95,8 @@ try:
         dst_index = config.get("wurfl_index_migration", "dst_index")
         concat_cap_list = config.get("wurfl_index_migration", "capabilities")
         wm_cache_size = config.get("wurfl_index_migration", "wm_cache_size")
+        log_arrival_delay = config.get("wurfl_index_migration", "log_arrival_delay")
+        checkpoint_row_span = config.get("wurfl_index_migration", "checkpoint_row_span")
         logger.debug("--- CONFIGURATION LOADED ----")
     # we must use a broad exception because specialized one is different between Python 2.7 and 3.x
     except Exception as ex:
@@ -90,13 +122,41 @@ try:
     if not isinstance(src_index_evt_count, int):
         src_index_evt_count = int(src_index_evt_count)
 
-    #  index exist, create new destination index, if it does not exist
+        # Verify if checkpoint index exists. If not, create it
+    checkpoint_data = {}
+    if checkpoint_index_name not in splunk_indexes:
+        checkpoint_index = splunk_indexes.create(checkpoint_index_name)
+        checkpoint_index.refresh()
+        logger.debug("checkpoint index created")
+        checkpoint_data[src_index.name] = 0
+        checkpoint_index.submit(event=json.dumps(checkpoint_data), host="localhost",
+                                source="wm_log_forensic_script", sourcetype="scripted_input")
+    else:
+        checkpoint_index = splunk_indexes[checkpoint_index_name]
+        # read checkpoint values if any
+        check_rr = results.ResultsReader(service.jobs.export("search index=" + checkpoint_index_name))
+        for check_result in check_rr:
+            if isinstance(check_result, results.Message):
+                # Diagnostic messages might be returned in the results
+                logger.debug('%s: %s', check_result.type, check_result.message)
+            elif isinstance(check_result, dict):
+                # Normal events are returned as dicts
+                item = check_result["_raw"]
+                checkpoint_data = json.loads(item)
+                logger.info(checkpoint_data)
+            else:
+                logger.error("No checkpoint item found, exiting")
+                exit(1)
+
+    #  now create new destination index, if it does not exist
     new_index = None
+    is_first_execution = True
     new_index_evt_count = 0
     if dst_index not in splunk_indexes:
         new_index = splunk_indexes.create(dst_index)
         logger.info("Index " + dst_index + " created")
     else:
+        is_first_execution = False
         new_index = splunk_indexes[dst_index]
         new_index_evt_count = new_index["totalEventCount"]
         logger.info(new_index_evt_count)
@@ -106,22 +166,26 @@ try:
         logger.info(new_index_evt_count)
         logger.info(src_index_evt_count)
 
-    # before proceeding to enrich src_index events, let's check if there's need to do another search
-    results_count = 0
-    if new_index_evt_count >= src_index_evt_count:
-        logger.info("Index " + dst_index + " is already up to date with source index " + index_name +
-                    " Exiting WURFL Microservice index enrichment script")
-        sys.exit(0)
+    # No data have ever been imported, search all
+    search_string = "search index=" + index_name + " | reverse"
+    if not is_first_execution:
+        # set search boundaries
+        end_timestamp = time.time() - int(log_arrival_delay)
+        str_end_timestamp = str(end_timestamp)
+        # start_timestamp = str(convert_time_to_timestamp(checkpoint_data[src_index.name]))
+        start_timestamp = checkpoint_data[src_index.name]
 
-    rr = results.ResultsReader(service.jobs.export("search index=" + index_name))
+        search_string = "search index= {} _indextime>{} _indextime<{} | reverse".format(src_index.name,
+                                                                                             start_timestamp,
+                                                                                             end_timestamp)
+
+    # before proceeding to enrich src_index events, let's check if there's need to do another search
+    logger.info(search_string)
+    rr = results.ResultsReader(service.jobs.export(search_string))
+    events_migrated = 0
+    current_timestamp = 0
     for result in rr:
         # this happens when import into new index has been stopped for some reason (ie: splunk shutdown/restart)
-        if new_index_evt_count > results_count:
-            results_count += 1
-            logger.info("result " + str(results_count) + " has already been imported: skipping")
-            continue
-
-        results_count += 1
         if isinstance(result, results.Message):
             # Diagnostic messages might be returned in the results
             logger.debug('%s: %s', result.type, result.message)
@@ -129,6 +193,9 @@ try:
             # Normal events are returned as dicts
             logger.debug("--------------------------------------------")
             item = result["_raw"]
+            # current_timestamp = result["_time"]
+            current_timestamp = result["_indextime"]
+            # logger.info(current_timestamp)
             parts = [
                 r'(?P<host>\S+)',  # host %h
                 r'\S+',  # indent %l (unused)
@@ -153,13 +220,18 @@ try:
             # logger.debug(item_dict)
             # ------------- Create an item to submit to index ----------------------------
             new_index.submit(event=json.dumps(item_dict), host=item_dict["host"],
-                             source=src_index.name, sourcetype="wurfl_enriched_access_combined")
+                             source="apache_test", sourcetype="wurfl_enriched_access_combined")
+            checkpoint_data[src_index.name] = str(current_timestamp)
+            events_migrated += 1
             logger.debug("new event submitted")
-            logger.info("Results count " + str(results_count))
-    logger.info("Results count at scripts end: " + str(results_count))
+            if should_write_checkpoint(int(checkpoint_row_span), events_migrated):
+                write_checkpoints(checkpoint_index, checkpoint_index_name, checkpoint_data)
+            logger.info("Events migrated " + str(events_migrated))
+    write_checkpoints(checkpoint_index, checkpoint_index_name, checkpoint_data)
+    logger.info("Last checkpoint written: " + str(checkpoint_data[src_index.name]))
     logger.debug("refreshing new index")
     new_index.refresh()
-    sleep(10)
+    time.sleep(10)
 except WmClientError as e:
     logger.error(e.message)
 finally:

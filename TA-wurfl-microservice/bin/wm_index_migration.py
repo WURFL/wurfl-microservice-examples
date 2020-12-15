@@ -57,11 +57,12 @@ def should_write_checkpoint(chk_point_row_span, l_count):
     return False
 
 
-def write_checkpoints(cp_index, cp_index_name, cp_data):
+def write_checkpoints(cp_index, cp_index_name, cp_data, post_del_sleep):
     cp_index.delete()
     logger.info("checkpoint index deleted")
     # we must give a short time to cleanup the index before re-creating it
-    time.sleep(1)
+    sleep_time = float(post_del_sleep)
+    time.sleep(sleep_time)
     cp_index = splunk_indexes.create(cp_index_name)
     logger.debug("checkpoint index recreated")
     cp_index.submit(event=json.dumps(cp_data), host="localhost",
@@ -125,6 +126,7 @@ try:
         wm_cache_size = config.get("wurfl_index_migration", "wm_cache_size")
         log_arrival_delay = config.get("wurfl_index_migration", "log_arrival_delay")
         checkpoint_row_span = config.get("wurfl_index_migration", "checkpoint_row_span")
+        index_post_deletion_sleep = config.get("wurfl_index_migration", "index_post_deletion_sleep")
         logger.debug("--- CONFIGURATION LOADED ----")
     # we must use a broad exception because specialized one is different between Python 2.7 and 3.x
     except Exception as ex:
@@ -256,9 +258,9 @@ try:
             events_migrated += 1
             logger.debug("new event submitted")
             if should_write_checkpoint(int(checkpoint_row_span), events_migrated):
-                write_checkpoints(checkpoint_index, checkpoint_index_name, checkpoint_data)
+                write_checkpoints(checkpoint_index, checkpoint_index_name, checkpoint_data, index_post_deletion_sleep)
             logger.info("Events migrated " + str(events_migrated))
-    write_checkpoints(checkpoint_index, checkpoint_index_name, checkpoint_data)
+    write_checkpoints(checkpoint_index, checkpoint_index_name, checkpoint_data, index_post_deletion_sleep)
     logger.info("Last checkpoint written: " + str(checkpoint_data[src_index.name]))
     logger.debug("refreshing new index")
     new_index.refresh()

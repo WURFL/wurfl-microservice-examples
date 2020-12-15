@@ -224,7 +224,6 @@ try:
             # Normal events are returned as dicts
             logger.debug("--------------------------------------------")
             item = result["_raw"]
-            # current_timestamp = result["_time"]
             current_timestamp = result["_indextime"]
             parts = [
                 r'(?P<host>\S+?)',  # host %h

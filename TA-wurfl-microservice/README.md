@@ -1,7 +1,7 @@
 # Splunk addon for WURFL Microservice integration
 
 This project contains scripts and default configurations 
-to use WURFL Microservice client to enrich input data that are saved into a Splunk index or
+to use WURFL Microservice client to enrich input data that are saved into a Splunk index
 or have to be loaded into Splunk from a log file.
 
  ### Prerequisites and dependencies
@@ -59,24 +59,28 @@ The path is relative to the Splunk app-on installation dir (ie path is resolved 
  
  Script `bin/wm_index_migration.py` does the following:
  - defines its own log file and format
+ - creates a .lock file used to ensure that only one instance of the script run  
  - dynamically loads configuration parser library depending on running Python version
  - loads custom script configuration
  - creates an instance of WURFL Microservice client
  - verifies that source index exist
  - creates the new destination index
- - check that source index has items to import (which happens when import is executed after the first time)
+ - reads checkpoint data (if any exist)
+ - check that source index has items to import (imports all on first execution or all records in a given time span in other executions)
  - fetches data from the source index
  - extracts the user agent from the source data items
  - performs a device detection using `wm_client.lookup_useragent(useragent)`
  - enriches the data items with WURFL capabilities
  - saves the enriched item to the destination index
+ - saves the checkpoint data if needed
+ - deletes the lock file before finishing the execution
 
- The script custom configuration are located int `bin/inputs.conf.spec`. This is a sample configuration
+ The script custom configuration are located int `default/inputs.conf.spec`. This is a sample configuration
  
 ```
 [wurfl_index_migration]
 user = admin
-pwd  = Q3JvdGFsbyQxNzk=
+pwd  = youB64encpwd=
 host = localhost
 port = 8089
 src_index = apache_test
@@ -84,6 +88,9 @@ dst_index = wurfl_index
 wm_host = localhost
 wm_port = 8080
 wm_cache_size = 200000
+log_arrival_delay = 300
+checkpoint_row_span = 5000
+index_post_deletion_sleep=0.9
 capabilities = brand_name,complete_device_name,device_os,device_os_version,form_factor,is_mobile,is_tablet
 ```
 
@@ -96,7 +103,15 @@ replace the code with a more secure encoding of your choice
  `wm_host` and `wm_port` are the ones exposed by WURFL Microservice server running on
   AWS/Azure/GCP/Docker image.
  `wm_cache_size` is the size of WURFL Microservice client cache
- `caoabilities` is a comma separated list of WURFL capabilities that you want to use to enrich log data
+ `capabilities` is a comma separated list of WURFL capabilities that you want to use to enrich log data
+ `checkpoint_row_span` is the number of rows that must be read before a write operation to the checkpoint index is done.
+ `log_arrival_delay` is the number of seconds used to adjust the upper bound of time span to handle a possible delay in record
+fetch
+`index_post_deletion_sleep` is the number of seconds that the scripts wait for recreating an index that has just been deleted 
+(Splunk may take some time before making a deleted index name available again)
+
+Checkpoint index is used to keep track of the timestamp of the last migrated event, and a new script execution must load only
+events ( = which timestamp is after the checkpoint timestamp) 
   
   All configuration parameters are mandatory
  
@@ -119,7 +134,7 @@ replace the code with a more secure encoding of your choice
     - saves the enriched item to the destination index
  - writes checkpoint data when necessary
  
- The script custom configuration are located int `bin/inputs.conf.spec`. This is a sample configuration
+ The script custom configuration are located int `default/inputs.conf.spec`. This is a sample configuration
  
 ```
 [wurfl_log_forensic_input]
@@ -136,11 +151,10 @@ capabilities = brand_name,complete_device_name,device_os,device_os_version,form_
 checkpoint_row_span = 500
 ```
 
-Many parameters are the same as the migration script with some exception.
+Almost all parameters are the same as the migration script with some exception.
 Data source parameter is `src_fs`: it can be the full path of a log forensic file or en entire directory: in that case every file inside the directory
 will be loaded into the Splunk index.
-`checkpoint_row_span` is the numer of rows that must be read before a write to the checkpoint index is done. 
-Checkpoint index is used to keep track of how many rows have been read from each file in case the files have been updated and a new script execution must
+Checkpoint index is used to keep track of how many rows have been read from each file in case the files have been updated, and a new script execution must
 read only the newly added lines.
 
 ### Script execution

@@ -40,12 +40,16 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.scientiamobile.wurfl.wmclient.*;
+
 @Tags({"WURFL"})
-@CapabilityDescription("Provide a description")
+@CapabilityDescription("Processor that enrichs data from HTTP requests passed in the flow files with data coming from WURFL Microservice")
 @SeeAlso({})
 @ReadsAttributes({@ReadsAttribute(attribute="", description="")})
 @WritesAttributes({@WritesAttribute(attribute="", description="")})
 public class WURFLRequestProcessor extends AbstractProcessor {
+
+    private WmClient wmClient;
 
     // We'll add all the configuration properties needed by WURFL Microservice to be created and used by the NiFi processor
 
@@ -55,6 +59,7 @@ public class WURFLRequestProcessor extends AbstractProcessor {
             .description("Connection protocol scheme used to connect to WURFL Microservice server (http/https)")
             .required(true)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .defaultValue("http")
             .build();
 
     public static final PropertyDescriptor WM_HOST = new PropertyDescriptor
@@ -78,6 +83,16 @@ public class WURFLRequestProcessor extends AbstractProcessor {
             .displayName("WM base base path")
             .description("URL segment that is needed by your URL address to connect to WURFL Microservice server. In most cases it's not needed")
             .required(false)
+            .defaultValue("")
+            .build();
+
+    public static final PropertyDescriptor WM_CACHE_SIZE = new PropertyDescriptor
+            .Builder().name("WM_CACHE_SIZE")
+            .displayName("WM cache size")
+            .description("Cache size for WURFL Microsroservice client instance")
+            .required(false)
+            .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
+            .defaultValue("100000")
             .build();
 
     public static final Relationship SUCCESS = new Relationship.Builder()
@@ -101,6 +116,7 @@ public class WURFLRequestProcessor extends AbstractProcessor {
         descriptors.add(WM_HOST);
         descriptors.add(WM_PORT);
         descriptors.add(WM_BASE_PATH);
+        descriptors.add(WM_CACHE_SIZE);
         this.descriptors = Collections.unmodifiableList(descriptors);
 
         final Set<Relationship> relationships = new HashSet<>();
@@ -121,11 +137,27 @@ public class WURFLRequestProcessor extends AbstractProcessor {
 
     @OnScheduled
     public void onScheduled(final ProcessContext context) {
+        // We place initialization of WmClient here
+        try {
+            wmClient = WmClient.create(
+                    context.getProperty(WM_SCHEME).getValue(),
+                    context.getProperty(WM_HOST).getValue(),
+                    context.getProperty(WM_PORT).getValue(),
+                    context.getProperty(WM_BASE_PATH).getValue()
+            );
+        } catch (WmException e) {
+            // TODO decide which is the better way to handle errors in this lifecycle phase
+            e.printStackTrace();
+        }
+        String cacheSize = context.getProperty(WM_CACHE_SIZE).getValue();
+        // at this stage, cache size value has been validated and filled with default value: no fear of a NumberFormat exception
+        wmClient.setCacheSize(Integer.parseInt(cacheSize));
 
     }
 
     @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
+
         FlowFile flowFile = session.get();
         if ( flowFile == null ) {
             return;

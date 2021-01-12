@@ -16,15 +16,13 @@
  */
 package com.scientiamobile.wurflmicroservice.nifi.processor;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import org.apache.nifi.annotation.lifecycle.OnStopped;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.flowfile.FlowFile;
-import org.apache.nifi.annotation.behavior.ReadsAttribute;
-import org.apache.nifi.annotation.behavior.ReadsAttributes;
-import org.apache.nifi.annotation.behavior.WritesAttribute;
-import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
-import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.AbstractProcessor;
@@ -32,26 +30,34 @@ import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
+import org.apache.nifi.processor.io.InputStreamCallback;
 import org.apache.nifi.processor.util.StandardValidators;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.scientiamobile.wurfl.wmclient.*;
 
 @Tags({"WURFL"})
-@CapabilityDescription("Processor that enrichs data from HTTP requests passed in the flow files with data coming from WURFL Microservice")
-@SeeAlso({})
-@ReadsAttributes({@ReadsAttribute(attribute="", description="")})
-@WritesAttributes({@WritesAttribute(attribute="", description="")})
+@CapabilityDescription("Processor that enriches data from HTTP requests passed in the flow files with data coming from WURFL Microservice")
 public class WURFLRequestProcessor extends AbstractProcessor {
 
     private WmClient wmClient;
+    private Gson gson;
 
     // We'll add all the configuration properties needed by WURFL Microservice to be created and used by the NiFi processor
+
+    public static final PropertyDescriptor FILE_PATH = new PropertyDescriptor
+            .Builder().name("FILE_PATH")
+            .displayName("Input file path")
+            .description("Absolute path of the file that will be enriched by WURFL Microservice")
+            .required(true)
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .addValidator(StandardValidators.FILE_EXISTS_VALIDATOR)
+            .build();
 
     public static final PropertyDescriptor WM_SCHEME = new PropertyDescriptor
             .Builder().name("WM_SCHEME")
@@ -123,6 +129,10 @@ public class WURFLRequestProcessor extends AbstractProcessor {
         relationships.add(SUCCESS);
         relationships.add(FAILURE);
         this.relationships = Collections.unmodifiableSet(relationships);
+
+        // also, init GSON parser
+        gson = new GsonBuilder().setPrettyPrinting().create();
+
     }
 
     @Override
@@ -138,11 +148,15 @@ public class WURFLRequestProcessor extends AbstractProcessor {
     @OnScheduled
     public void onScheduled(final ProcessContext context) {
         // We place initialization of WmClient here
+        String host = "";
+        String port = "";
         try {
+            host = context.getProperty(WM_HOST).getValue();
+            port = context.getProperty(WM_PORT).getValue();
             wmClient = WmClient.create(
                     context.getProperty(WM_SCHEME).getValue(),
-                    context.getProperty(WM_HOST).getValue(),
-                    context.getProperty(WM_PORT).getValue(),
+                    host,
+                    port,
                     context.getProperty(WM_BASE_PATH).getValue()
             );
         } catch (WmException e) {
@@ -152,8 +166,23 @@ public class WURFLRequestProcessor extends AbstractProcessor {
         String cacheSize = context.getProperty(WM_CACHE_SIZE).getValue();
         // at this stage, cache size value has been validated and filled with default value: no fear of a NumberFormat exception
         wmClient.setCacheSize(Integer.parseInt(cacheSize));
+        getLogger().info("WURFL Microservice client initialized on {}:{}.",
+                new String[]{host, port});
 
     }
+
+    @OnStopped
+    public void destroyWmClient(){
+        if (wmClient != null) {
+            try {
+                wmClient.destroyConnection();
+                wmClient = null;
+            } catch (WmException e) {
+                getLogger().error(" Error destroying WURFL Microservice client.", e);
+            }
+        }
+    }
+
 
     @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
@@ -163,5 +192,22 @@ public class WURFLRequestProcessor extends AbstractProcessor {
             return;
         }
         // TODO implement
+        final AtomicReference<TreeMap<String,String>[]> jsonData = new AtomicReference<>();
+        session.read(flowFile, inputStream -> {
+            TreeMap<String, String>[] data = gson.fromJson(new InputStreamReader(inputStream), TreeMap[].class);
+            jsonData.set(data);
+        });
+
+
+        for(TreeMap<String,String> jsonRequest: jsonData.get()){
+            try {
+                Model.JSONDeviceData device = wmClient.lookupHeaders(jsonRequest);
+                jsonRequest.putAll(device.capabilities);
+            } catch (WmException e) {
+                session.transfer(flowFile, FAILURE);
+                getLogger().error("WURFL Microservice detection failed due to an exception", e);
+                break;
+            }
+        }
     }
 }

@@ -32,8 +32,10 @@ import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
+import org.apache.nifi.processor.io.OutputStreamCallback;
 import org.apache.nifi.processor.util.StandardValidators;
-import java.io.InputStreamReader;
+
+import java.io.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -202,11 +204,6 @@ public class WURFLRequestProcessor extends AbstractProcessor {
             return;
         }
 
-        Map<String,String> attrs = flowFile.getAttributes();
-        for (String k: attrs.keySet()){
-            getLogger().info(k + " : " + attrs.get(k));
-        }
-
         final AtomicReference<TreeMap<String,String>[]> jsonData = new AtomicReference<>();
         session.read(flowFile, inputStream -> {
             TreeMap<String, String>[] data = gson.fromJson(new InputStreamReader(inputStream), TreeMap[].class);
@@ -230,8 +227,10 @@ public class WURFLRequestProcessor extends AbstractProcessor {
             session.transfer(flowFile, FAILURE);
         }
         else {
-            session.putAttribute(flowFile, ENRICHED_JSON_ATTR,
-                    gson.toJson(jsonData.get(), TreeMap[].class));
+            String json = gson.toJson(jsonData.get(), TreeMap[].class);
+            session.write(flowFile, outputStream -> {
+                new OutputStreamWriter(outputStream).write(json);
+            });
             session.transfer(flowFile, SUCCESS);
         }
     }

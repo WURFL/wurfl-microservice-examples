@@ -40,7 +40,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import com.scientiamobile.wurfl.wmclient.*;
 
-@Tags({"WURFL", "data-enrichment", "processor"})
+@Tags({"http", "https", "request", "listen", "WURFL", "web service"})
 @CapabilityDescription("Processor that enriches data from HTTP requests passed in the flow files with data coming from WURFL Microservice")
 public class WURFLRequestProcessor extends AbstractProcessor {
 

@@ -28,8 +28,8 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>nifi-nifi-enrich-processor-processors</module>
-        <module>nifi-nifi-enrich-processor-nar</module>
+        <module>nifi-enrich-processor-processors</module>
+        <module>nifi-enrich-processor-nar</module>
     </modules>
 
 </project>

@@ -22,7 +22,7 @@
         <version>1.0.0</version>
     </parent>
 
-    <artifactId>nifi-nifi-enrich-processor-processors</artifactId>
+    <artifactId>nifi-enrich-processor-processors</artifactId>
     <packaging>jar</packaging>
 
     <dependencies>

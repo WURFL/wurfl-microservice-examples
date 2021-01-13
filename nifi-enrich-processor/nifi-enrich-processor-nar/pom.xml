@@ -22,7 +22,7 @@
         <version>1.0.0</version>
     </parent>
 
-    <artifactId>nifi-nifi-enrich-processor-nar</artifactId>
+    <artifactId>nifi-enrich-processor-nar</artifactId>
     <version>1.0.0</version>
     <packaging>nar</packaging>
     <properties>
@@ -33,7 +33,7 @@
     <dependencies>
         <dependency>
             <groupId>com.scientiamobile.wurflmicroservice</groupId>
-            <artifactId>nifi-nifi-enrich-processor-processors</artifactId>
+            <artifactId>nifi-enrich-processor-processors</artifactId>
             <version>1.0.0</version>
         </dependency>
     </dependencies>

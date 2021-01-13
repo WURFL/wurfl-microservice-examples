@@ -18,41 +18,42 @@ package com.scientiamobile.wurflmicroservice.nifi.processor;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import org.apache.nifi.annotation.behavior.WritesAttribute;
-import org.apache.nifi.annotation.lifecycle.OnStopped;
+import org.apache.nifi.annotation.lifecycle.*;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.Validator;
 import org.apache.nifi.flowfile.FlowFile;
-import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
+import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.AbstractProcessor;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
-import org.apache.nifi.processor.io.OutputStreamCallback;
 import org.apache.nifi.processor.util.StandardValidators;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.scientiamobile.wurfl.wmclient.*;
 
-@Tags({"WURFL"})
-@WritesAttribute(attribute = "WURFL_ENRICHED_JSON", description = "Http request data enriched with WURFL capabilities")
+@Tags({"WURFL", "data-enrichment", "processor"})
 @CapabilityDescription("Processor that enriches data from HTTP requests passed in the flow files with data coming from WURFL Microservice")
 public class WURFLRequestProcessor extends AbstractProcessor {
 
-    private static final String ENRICHED_JSON_ATTR = "WURFL_ENRICHED_JSON";
     private WmClient wmClient;
     private Gson gson;
+    private ComponentLog logger;
+    private Map<String, String> currentConfiguration = new ConcurrentHashMap<>();
+
+    // current WURFL Microservice config data
 
 
-    // We'll add all the configuration properties needed by WURFL Microservice to be created and used by the NiFi processor
-
+    // Let's add all the configuration properties needed by WURFL Microservice to be created and used by the NiFi processor.
+    // These properties are filled in the Processor creation wizard in NiFi webapp UI
     public static final PropertyDescriptor FILE_PATH = new PropertyDescriptor
             .Builder().name("FILE_PATH")
             .displayName("Input file path")
@@ -119,8 +120,18 @@ public class WURFLRequestProcessor extends AbstractProcessor {
 
     private Set<Relationship> relationships;
 
+    private final List<String> triggerClientResetProps = new ArrayList<>();
+
     @Override
     protected void init(final ProcessorInitializationContext context) {
+
+        logger = getLogger();
+
+        triggerClientResetProps.add(WM_SCHEME.getName());
+        triggerClientResetProps.add(WM_HOST.getName());
+        triggerClientResetProps.add(WM_PORT.getName());
+        triggerClientResetProps.add(WM_BASE_PATH.getName());
+
         final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(WM_SCHEME);
         descriptors.add(WM_HOST);
@@ -137,7 +148,6 @@ public class WURFLRequestProcessor extends AbstractProcessor {
 
         // also, init GSON parser
         gson = new GsonBuilder().setPrettyPrinting().create();
-
     }
 
     @Override
@@ -151,56 +161,108 @@ public class WURFLRequestProcessor extends AbstractProcessor {
     }
 
     @OnScheduled
-    public void onScheduled(final ProcessContext context) {
-        // We place initialization of WmClient here
-        String scheme = "";
-        String host = "";
-        String port = "";
-        try {
-            scheme = context.getProperty(WM_SCHEME).getValue();
-            host = context.getProperty(WM_HOST).getValue();
-            port = context.getProperty(WM_PORT).getValue();
-            wmClient = WmClient.create(
-                    scheme,
-                    host,
-                    port,
-                    context.getProperty(WM_BASE_PATH).getValue()
-            );
-        } catch (WmException e) {
-            getLogger().error("WURFL Microservice client failed initialized for scheme {}  host:port {}:{}.",
-                    new String[]{scheme, host, port});
-            e.printStackTrace();
-        }
-        String cacheSize = context.getProperty(WM_CACHE_SIZE).getValue();
-        getLogger().info("WM cache size:  {}",
-                new String[]{cacheSize});
-        // at this stage, cache size value has been validated and filled with default value: no fear of a NumberFormat exception
-        wmClient.setCacheSize(Integer.parseInt(cacheSize));
-        getLogger().info("WURFL Microservice client initialized on {}:{}.",
-                new String[]{host, port});
+    public void onScheduled(final ProcessContext context) throws WmException {
+        //logger.info("------------------------ ON SCHEDULED ---------------------------");
+        currentConfiguration = fromContext(context);
 
+        if (wmClient == null){
+             logger.warn("Recreating WM client in onSchedule method");
+             if(!createWmClient(currentConfiguration)){
+                return;
+             }
+             wmClient.setCacheSize(Integer.parseInt(currentConfiguration.get(WM_CACHE_SIZE.getName())));
+            }
+        }
+
+    @Override
+    public void onPropertyModified(final PropertyDescriptor descriptor, final String oldValue, final String newValue) {
+
+        // it seems weird, but sometimes this gets called even when property has not been changed,
+        // as in this issue https://issues.apache.org/jira/browse/NIFI-7123
+        if (oldValue == null || newValue == null || oldValue.equals(newValue)){
+            return;
+        }
+
+        // create a copy of the config config and replace the updated value
+        Map<String, String> newConfig = new ConcurrentHashMap<>(currentConfiguration);
+        newConfig.put(descriptor.getName(), newValue);
+
+        // In case the changed property is just cache size, we reset the cache
+        if (descriptor.getName().equals(WM_CACHE_SIZE.getName())){
+            logger.warn("Resetting WM client cache in onPropertyModified method");
+            wmClient.setCacheSize(Integer.parseInt(newValue));
+            // all other properties in this list trigger a new client creation
+        } else if (triggerClientResetProps.contains(descriptor.getName())) {
+            try {
+                wmClient.destroyConnection();
+            } catch (WmException e) {
+                logger.warn("Unable to destroy WM client", e);
+            }
+            logger.warn("Recreating WM client in onPropertyModified method");
+            if(createWmClient(newConfig)){
+                currentConfiguration = newConfig;
+            }
+        }
     }
 
-    @OnStopped
+    /*
+     * Creates a new instance of a WM client. It returns false if some exception occurs (ie: connection exception),
+     * false otherwise. Logs any error on Apache NiFi log at $NIFI_HOME/logs/nifi-app.log
+     */
+    private boolean createWmClient(Map<String,String> config) {
+
+        try {
+            wmClient = WmClient.create(
+                    config.get(WM_SCHEME.getName()),
+                    config.get(WM_HOST.getName()),
+                    config.get(WM_PORT.getName()),
+                    config.get(WM_BASE_PATH.getName()));
+            return true;
+        } catch (WmException e) {
+            logger.error("WURFL Microservice client failed initialized for scheme {}  host:port {}:{}.",
+                    new String[]{
+                            config.get(WM_SCHEME.getName()), config.get(WM_HOST.getName()), config.get(WM_PORT.getName())});
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /*
+     * This is called when the data flow is removed from NiFi UI or NiFi is shut down
+     */
+    @OnRemoved
+    @OnShutdown
     public void destroyWmClient(){
+        logger.info("Stopping WURFL Request Processor");
         if (wmClient != null) {
             try {
                 wmClient.destroyConnection();
                 wmClient = null;
             } catch (WmException e) {
-                getLogger().error(" Error destroying WURFL Microservice client.", e);
+                logger.error(" Error destroying WURFL Microservice client.", e);
             }
         }
+        logger.info("WURFL Microservice client stopped and deallocated");
+    }
+
+    public static Map<String,String> fromContext(ProcessContext context) {
+        Map<String,String> config = new ConcurrentHashMap<>();
+        config.put(WM_SCHEME.getName(), context.getProperty(WM_SCHEME).getValue());
+        config.put(WM_HOST.getName(), context.getProperty(WM_HOST).getValue());
+        config.put(WM_PORT.getName(), context.getProperty(WM_PORT).getValue());
+        config.put(WM_BASE_PATH.getName(), context.getProperty(WM_BASE_PATH).getValue());
+        config.put(WM_CACHE_SIZE.getName(), context.getProperty(WM_CACHE_SIZE).getValue());
+        return config;
     }
 
 
     @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
 
-        getLogger().info("Starting WURFL data enrichment");
+        logger.info("Starting WURFL data enrichment");
         FlowFile flowFile = session.get();
         if ( flowFile == null ) {
-            getLogger().warn("Flow file is null, exiting");
+            logger.warn("Flow file is null, exiting");
             return;
         }
 
@@ -217,7 +279,7 @@ public class WURFLRequestProcessor extends AbstractProcessor {
                 Model.JSONDeviceData device = wmClient.lookupHeaders(jsonRequest);
                 jsonRequest.putAll(device.capabilities);
             } catch (WmException e) {
-                getLogger().error("WURFL Microservice detection failed due to an exception", e);
+                logger.error("WURFL Microservice detection failed due to an exception", e);
                 failure = true;
                 session.rollback();
                 break;
@@ -231,6 +293,7 @@ public class WURFLRequestProcessor extends AbstractProcessor {
             session.write(flowFile, outputStream -> {
                 new OutputStreamWriter(outputStream).write(json);
             });
+            logger.info("WURFL data enrichment completed, sending SUCCESS flow");
             session.transfer(flowFile, SUCCESS);
         }
     }

@@ -40,7 +40,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import com.scientiamobile.wurfl.wmclient.*;
 
-@Tags({"http", "https", "request", "listen", "WURFL", "web service"})
+@Tags({"http", "https", "request", "listen", "WURFL", "web service", "attributes"})
 @CapabilityDescription("Processor that enriches data from HTTP requests passed in the flow files with data coming from WURFL Microservice")
 @ReadsAttribute(attribute = "http.headers.XXX", description = "Each of the HTTP Headers exposed by HandleHttpRequest processor")
 @WritesAttributes({
@@ -60,19 +60,9 @@ public class WURFLRequestProcessor extends AbstractProcessor {
     private ComponentLog logger;
     private Map<String, String> currentConfiguration = new ConcurrentHashMap<>();
 
-    // current WURFL Microservice config data
-
 
     // Let's add all the configuration properties needed by WURFL Microservice to be created and used by the NiFi processor.
     // These properties are filled in the Processor creation wizard in NiFi webapp UI
-    public static final PropertyDescriptor FILE_PATH = new PropertyDescriptor
-            .Builder().name("FILE_PATH")
-            .displayName("Input file path")
-            .description("Absolute path of the file that will be enriched by WURFL Microservice")
-            .required(true)
-            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
-            .addValidator(StandardValidators.FILE_EXISTS_VALIDATOR)
-            .build();
 
     public static final PropertyDescriptor WM_SCHEME = new PropertyDescriptor
             .Builder().name("WM_SCHEME")
@@ -149,7 +139,6 @@ public class WURFLRequestProcessor extends AbstractProcessor {
         descriptors.add(WM_PORT);
         descriptors.add(WM_BASE_PATH);
         descriptors.add(WM_CACHE_SIZE);
-        descriptors.add(FILE_PATH);
         this.descriptors = Collections.unmodifiableList(descriptors);
 
         final Set<Relationship> relationships = new HashSet<>();
@@ -173,21 +162,21 @@ public class WURFLRequestProcessor extends AbstractProcessor {
         //logger.info("------------------------ ON SCHEDULED ---------------------------");
         currentConfiguration = fromContext(context);
 
-        if (wmClientRef == null || wmClientRef.get() == null){
-             logger.warn("Recreating WM client in onSchedule method");
-             if(!createWmClient(currentConfiguration)){
+        if (wmClientRef == null || wmClientRef.get() == null) {
+            logger.warn("Recreating WM client in onSchedule method");
+            if (!createWmClient(currentConfiguration)) {
                 return;
-             }
-             wmClientRef.get().setCacheSize(Integer.parseInt(currentConfiguration.get(WM_CACHE_SIZE.getName())));
             }
+            wmClientRef.get().setCacheSize(Integer.parseInt(currentConfiguration.get(WM_CACHE_SIZE.getName())));
         }
+    }
 
     @Override
     public void onPropertyModified(final PropertyDescriptor descriptor, final String oldValue, final String newValue) {
 
         // it seems weird, but sometimes this gets called even when property has not been changed,
         // as in this issue https://issues.apache.org/jira/browse/NIFI-7123
-        if (oldValue == null || newValue == null || oldValue.equals(newValue)){
+        if (oldValue == null || newValue == null || oldValue.equals(newValue)) {
             return;
         }
 
@@ -196,7 +185,7 @@ public class WURFLRequestProcessor extends AbstractProcessor {
         newConfig.put(descriptor.getName(), newValue);
 
         // In case the changed property is just cache size, we reset the cache
-        if (descriptor.getName().equals(WM_CACHE_SIZE.getName())){
+        if (descriptor.getName().equals(WM_CACHE_SIZE.getName())) {
             logger.warn("Resetting WM client cache in onPropertyModified method");
             wmClientRef.get().setCacheSize(Integer.parseInt(newValue));
             // all other properties in this list trigger a new client creation
@@ -208,7 +197,7 @@ public class WURFLRequestProcessor extends AbstractProcessor {
                 logger.warn("Unable to destroy WM client", e);
             }
             logger.warn("Recreating WM client in onPropertyModified method");
-            if(createWmClient(newConfig)){
+            if (createWmClient(newConfig)) {
                 currentConfiguration = newConfig;
             }
         }
@@ -218,7 +207,7 @@ public class WURFLRequestProcessor extends AbstractProcessor {
      * Creates a new instance of a WM client. It returns false if some exception occurs (ie: connection exception),
      * false otherwise. Logs any error on Apache NiFi log at $NIFI_HOME/logs/nifi-app.log
      */
-    private boolean createWmClient(Map<String,String> config) {
+    private boolean createWmClient(Map<String, String> config) {
 
         try {
             wmClientRef = new AtomicReference<>();
@@ -243,7 +232,7 @@ public class WURFLRequestProcessor extends AbstractProcessor {
      */
     @OnRemoved
     @OnShutdown
-    public void destroyWmClient(){
+    public void destroyWmClient() {
         logger.info("Stopping WURFL Request Processor");
         if (wmClientRef != null) {
             try {
@@ -256,8 +245,8 @@ public class WURFLRequestProcessor extends AbstractProcessor {
         logger.info("WURFL Microservice client stopped and deallocated");
     }
 
-    public static Map<String,String> fromContext(ProcessContext context) {
-        Map<String,String> config = new ConcurrentHashMap<>();
+    public static Map<String, String> fromContext(ProcessContext context) {
+        Map<String, String> config = new ConcurrentHashMap<>();
         config.put(WM_SCHEME.getName(), context.getProperty(WM_SCHEME).getValue());
         config.put(WM_HOST.getName(), context.getProperty(WM_HOST).getValue());
         config.put(WM_PORT.getName(), context.getProperty(WM_PORT).getValue());
@@ -271,36 +260,41 @@ public class WURFLRequestProcessor extends AbstractProcessor {
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
 
         FlowFile flowFile = session.get();
-        if ( flowFile == null ) {
+        if (flowFile == null) {
             logger.warn("Flow file is null, exiting");
             return;
         }
 
         logger.info("Reading HTTP attributes header ");
-        Map<String,String> headers = getHeadersFromFlowFile(session.get());
+        dumpFlowFileAttributes(flowFile);
+        Map<String, String> headers = getHeadersFromFlowFile(flowFile);
+
         logger.info("Starting WURFL data enrichment");
-        if(headers.size() == 0){
+        if (headers.size() == 0) {
             session.transfer(flowFile, FAILURE);
-        }
-        else {
+        } else {
             try {
                 Model.JSONDeviceData device = wmClientRef.get().lookupHeaders(headers);
-                final Map<String,String> wurflAttributes = new ConcurrentHashMap<>();
+                final Map<String, String> wurflAttributes = new ConcurrentHashMap<>();
                 device.capabilities.forEach((key, value) -> wurflAttributes.put(CAPABILITY_ATTR_PREFIX + key, value));
                 session.putAllAttributes(flowFile, wurflAttributes);
                 logger.info("WURFL data enrichment completed, sending SUCCESS flow");
                 session.transfer(flowFile, SUCCESS);
-            }
-            catch (WmException e){
+            } catch (WmException e) {
                 session.putAttribute(flowFile, FAILURE_ATTR_NAME, e.getMessage());
                 session.transfer(flowFile, FAILURE);
             }
         }
     }
 
+    private void dumpFlowFileAttributes(FlowFile flowFile) {
+        String sep = "-----------------";
+        flowFile.getAttributes().forEach((k, v) -> logger.info(sep + " " + k + " : " + v + " " + sep));
+    }
+
     private Map<String, String> getHeadersFromFlowFile(FlowFile flowFile) {
-        Map<String,String> headers = new ConcurrentHashMap<>();
-        for (String hName: wmClientRef.get().getImportantHeaders()) {
+        Map<String, String> headers = new ConcurrentHashMap<>();
+        for (String hName : wmClientRef.get().getImportantHeaders()) {
             String hValue = flowFile.getAttribute(HTTP_HEADER_ATTR_PREFIX + hName);
             if (hValue != null) {
                 headers.put(hName, hValue);

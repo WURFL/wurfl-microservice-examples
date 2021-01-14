@@ -23,13 +23,13 @@
     </parent>
 
     <groupId>com.scientiamobile.wurflmicroservice</groupId>
-    <artifactId>nifi-enrich-processor</artifactId>
+    <artifactId>nifi-wurfl-enrich-processor</artifactId>
     <version>1.0.0</version>
     <packaging>pom</packaging>
 
     <modules>
-        <module>nifi-enrich-processor-processors</module>
-        <module>nifi-enrich-processor-nar</module>
+        <module>nifi-wurfl-enrich-processor-processors</module>
+        <module>nifi-wurfl-enrich-processor-nar</module>
     </modules>
 
 </project>

@@ -16,8 +16,9 @@
  */
 package com.scientiamobile.wurflmicroservice.nifi.processor;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import org.apache.nifi.annotation.behavior.ReadsAttribute;
+import org.apache.nifi.annotation.behavior.WritesAttribute;
+import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.lifecycle.*;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.Validator;
@@ -33,7 +34,6 @@ import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.util.StandardValidators;
 
-import java.io.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
@@ -42,10 +42,21 @@ import com.scientiamobile.wurfl.wmclient.*;
 
 @Tags({"http", "https", "request", "listen", "WURFL", "web service"})
 @CapabilityDescription("Processor that enriches data from HTTP requests passed in the flow files with data coming from WURFL Microservice")
+@ReadsAttribute(attribute = "http.headers.XXX", description = "Each of the HTTP Headers exposed by HandleHttpRequest processor")
+@WritesAttributes({
+        @WritesAttribute(attribute = "wurfl.capability.XXX", description = "Each of the WURFL capabilities exposed by WURFL Microservice will be added as "
+                + "attribute, prefixed with \"wurfl.capabilities.\" For example, if the WURFL capability named \"brand_name\", then the value "
+                + "will be added to an attribute named \"wurfl.capabilities.brand_name\""),
+        @WritesAttribute(attribute = "failure.cause", description = "Description of WURFL Microservice error in case of exception occurred in the detection process")
+})
 public class WURFLRequestProcessor extends AbstractProcessor {
 
-    private WmClient wmClient;
-    private Gson gson;
+    private final static String CAPABILITY_ATTR_PREFIX = "wurfl.capabilities.";
+    private final static String HTTP_HEADER_ATTR_PREFIX = "http.headers.";
+    private static final String FAILURE_ATTR_NAME = "failure.cause";
+
+
+    private AtomicReference<WmClient> wmClientRef;
     private ComponentLog logger;
     private Map<String, String> currentConfiguration = new ConcurrentHashMap<>();
 
@@ -145,9 +156,6 @@ public class WURFLRequestProcessor extends AbstractProcessor {
         relationships.add(SUCCESS);
         relationships.add(FAILURE);
         this.relationships = Collections.unmodifiableSet(relationships);
-
-        // also, init GSON parser
-        gson = new GsonBuilder().setPrettyPrinting().create();
     }
 
     @Override
@@ -165,12 +173,12 @@ public class WURFLRequestProcessor extends AbstractProcessor {
         //logger.info("------------------------ ON SCHEDULED ---------------------------");
         currentConfiguration = fromContext(context);
 
-        if (wmClient == null){
+        if (wmClientRef == null || wmClientRef.get() == null){
              logger.warn("Recreating WM client in onSchedule method");
              if(!createWmClient(currentConfiguration)){
                 return;
              }
-             wmClient.setCacheSize(Integer.parseInt(currentConfiguration.get(WM_CACHE_SIZE.getName())));
+             wmClientRef.get().setCacheSize(Integer.parseInt(currentConfiguration.get(WM_CACHE_SIZE.getName())));
             }
         }
 
@@ -190,11 +198,12 @@ public class WURFLRequestProcessor extends AbstractProcessor {
         // In case the changed property is just cache size, we reset the cache
         if (descriptor.getName().equals(WM_CACHE_SIZE.getName())){
             logger.warn("Resetting WM client cache in onPropertyModified method");
-            wmClient.setCacheSize(Integer.parseInt(newValue));
+            wmClientRef.get().setCacheSize(Integer.parseInt(newValue));
             // all other properties in this list trigger a new client creation
         } else if (triggerClientResetProps.contains(descriptor.getName())) {
             try {
-                wmClient.destroyConnection();
+                wmClientRef.get().destroyConnection();
+                wmClientRef = null;
             } catch (WmException e) {
                 logger.warn("Unable to destroy WM client", e);
             }
@@ -212,11 +221,13 @@ public class WURFLRequestProcessor extends AbstractProcessor {
     private boolean createWmClient(Map<String,String> config) {
 
         try {
-            wmClient = WmClient.create(
+            wmClientRef = new AtomicReference<>();
+            WmClient wmClient = WmClient.create(
                     config.get(WM_SCHEME.getName()),
                     config.get(WM_HOST.getName()),
                     config.get(WM_PORT.getName()),
                     config.get(WM_BASE_PATH.getName()));
+            wmClientRef.set(wmClient);
             return true;
         } catch (WmException e) {
             logger.error("WURFL Microservice client failed initialized for scheme {}  host:port {}:{}.",
@@ -234,10 +245,10 @@ public class WURFLRequestProcessor extends AbstractProcessor {
     @OnShutdown
     public void destroyWmClient(){
         logger.info("Stopping WURFL Request Processor");
-        if (wmClient != null) {
+        if (wmClientRef != null) {
             try {
-                wmClient.destroyConnection();
-                wmClient = null;
+                wmClientRef.get().destroyConnection();
+                wmClientRef = null;
             } catch (WmException e) {
                 logger.error(" Error destroying WURFL Microservice client.", e);
             }
@@ -259,42 +270,42 @@ public class WURFLRequestProcessor extends AbstractProcessor {
     @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
 
-        logger.info("Starting WURFL data enrichment");
         FlowFile flowFile = session.get();
         if ( flowFile == null ) {
             logger.warn("Flow file is null, exiting");
             return;
         }
 
-        final AtomicReference<TreeMap<String,String>[]> jsonData = new AtomicReference<>();
-        session.read(flowFile, inputStream -> {
-            TreeMap<String, String>[] data = gson.fromJson(new InputStreamReader(inputStream), TreeMap[].class);
-            jsonData.set(data);
-        });
-
-
-        boolean failure = false;
-        for(TreeMap<String,String> jsonRequest: jsonData.get()){
-            try {
-                Model.JSONDeviceData device = wmClient.lookupHeaders(jsonRequest);
-                jsonRequest.putAll(device.capabilities);
-            } catch (WmException e) {
-                logger.error("WURFL Microservice detection failed due to an exception", e);
-                failure = true;
-                session.rollback();
-                break;
-            }
-        }
-        if (failure) {
+        logger.info("Reading HTTP attributes header ");
+        Map<String,String> headers = getHeadersFromFlowFile(session.get());
+        logger.info("Starting WURFL data enrichment");
+        if(headers.size() == 0){
             session.transfer(flowFile, FAILURE);
         }
         else {
-            String json = gson.toJson(jsonData.get(), TreeMap[].class);
-            session.write(flowFile, outputStream -> {
-                new OutputStreamWriter(outputStream).write(json);
-            });
-            logger.info("WURFL data enrichment completed, sending SUCCESS flow");
-            session.transfer(flowFile, SUCCESS);
+            try {
+                Model.JSONDeviceData device = wmClientRef.get().lookupHeaders(headers);
+                final Map<String,String> wurflAttributes = new ConcurrentHashMap<>();
+                device.capabilities.forEach((key, value) -> wurflAttributes.put(CAPABILITY_ATTR_PREFIX + key, value));
+                session.putAllAttributes(flowFile, wurflAttributes);
+                logger.info("WURFL data enrichment completed, sending SUCCESS flow");
+                session.transfer(flowFile, SUCCESS);
+            }
+            catch (WmException e){
+                session.putAttribute(flowFile, FAILURE_ATTR_NAME, e.getMessage());
+                session.transfer(flowFile, FAILURE);
+            }
         }
+    }
+
+    private Map<String, String> getHeadersFromFlowFile(FlowFile flowFile) {
+        Map<String,String> headers = new ConcurrentHashMap<>();
+        for (String hName: wmClientRef.get().getImportantHeaders()) {
+            String hValue = flowFile.getAttribute(HTTP_HEADER_ATTR_PREFIX + hName);
+            if (hValue != null) {
+                headers.put(hName, hValue);
+            }
+        }
+        return headers;
     }
 }

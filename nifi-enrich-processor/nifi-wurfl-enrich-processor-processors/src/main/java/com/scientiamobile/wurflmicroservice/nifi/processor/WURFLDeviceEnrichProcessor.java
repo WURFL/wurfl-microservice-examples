@@ -44,14 +44,14 @@ import com.scientiamobile.wurfl.wmclient.*;
 @CapabilityDescription("Processor that enriches data from HTTP requests passed in the flow files with data coming from WURFL Microservice")
 @ReadsAttribute(attribute = "http.headers.XXX", description = "Each of the HTTP Headers exposed by HandleHttpRequest processor")
 @WritesAttributes({
-        @WritesAttribute(attribute = "wurfl.capability.XXX", description = "Each of the WURFL capabilities exposed by WURFL Microservice will be added as "
-                + "attribute, prefixed with \"wurfl.capabilities.\" For example, if the WURFL capability named \"brand_name\", then the value "
-                + "will be added to an attribute named \"wurfl.capabilities.brand_name\""),
+        @WritesAttribute(attribute = "wurfl.XXX", description = "Each of the WURFL capabilities exposed by WURFL Microservice will be added as "
+                + "attribute, prefixed with \"wurfl.\" For example, if the WURFL capability named \"brand_name\", then the value "
+                + "will be added to an attribute named \"wurfl.brand_name\""),
         @WritesAttribute(attribute = "failure.cause", description = "Description of WURFL Microservice error in case of exception occurred in the detection process")
 })
-public class WURFLRequestProcessor extends AbstractProcessor {
+public class WURFLDeviceEnrichProcessor extends AbstractProcessor {
 
-    private final static String CAPABILITY_ATTR_PREFIX = "wurfl.capabilities.";
+    private final static String WURFL_ATTR_PREFIX = "wurfl.";
     private final static String HTTP_HEADER_ATTR_PREFIX = "http.headers.";
     private static final String FAILURE_ATTR_NAME = "failure.cause";
 
@@ -276,7 +276,7 @@ public class WURFLRequestProcessor extends AbstractProcessor {
             try {
                 Model.JSONDeviceData device = wmClientRef.get().lookupHeaders(headers);
                 final Map<String, String> wurflAttributes = new ConcurrentHashMap<>();
-                device.capabilities.forEach((key, value) -> wurflAttributes.put(CAPABILITY_ATTR_PREFIX + key, value));
+                device.capabilities.forEach((key, value) -> wurflAttributes.put(WURFL_ATTR_PREFIX + key, value));
                 session.putAllAttributes(flowFile, wurflAttributes);
                 logger.info("WURFL data enrichment completed, sending SUCCESS flow");
                 session.transfer(flowFile, SUCCESS);
@@ -288,8 +288,11 @@ public class WURFLRequestProcessor extends AbstractProcessor {
     }
 
     private void dumpFlowFileAttributes(FlowFile flowFile) {
-        String sep = "-----------------";
-        flowFile.getAttributes().forEach((k, v) -> logger.info(sep + " " + k + " : " + v + " " + sep));
+        String sep = "------------------------------------------------------\n";
+        final StringBuilder dump = new StringBuilder(sep);
+        flowFile.getAttributes().forEach((k, v) -> dump.append(k + " : " + v + "\n"));
+        dump.append(sep);
+        logger.info(dump.toString());
     }
 
     private Map<String, String> getHeadersFromFlowFile(FlowFile flowFile) {

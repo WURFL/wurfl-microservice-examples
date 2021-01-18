@@ -37,6 +37,7 @@ import org.apache.nifi.processor.util.StandardValidators;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import com.scientiamobile.wurfl.wmclient.*;
 
@@ -52,7 +53,7 @@ import com.scientiamobile.wurfl.wmclient.*;
 public class WURFLDeviceEnrichProcessor extends AbstractProcessor {
 
     private final static String WURFL_ATTR_PREFIX = "wurfl.";
-    private final static String HTTP_HEADER_ATTR_PREFIX = "http.headers.";
+    //private final static String HTTP_HEADER_ATTR_PREFIX = "http.headers.";
     private static final String FAILURE_ATTR_NAME = "failure.cause";
 
 
@@ -107,6 +108,30 @@ public class WURFLDeviceEnrichProcessor extends AbstractProcessor {
             .defaultValue("100000")
             .build();
 
+    private static final String ATTR_TYPE_NAME = "attribute name";
+    private static final String ATTR_TYPE_PREFIX = "attribute name prefix";
+    public static final PropertyDescriptor INPUT_ATTR_TYPE = new PropertyDescriptor
+            .Builder().name("INPUT_ATTR_TYPE")
+            .displayName("Input attribute type")
+            .description("This property specifies whether the input attribute contains the name of the attribute that holds the User-Agent value or" +
+                    " the common prefix of a set of attributes that contain HTTP request headers, for example in the format provided by the " +
+                    "HandleHttpRequest processor (http.headers.XXX). The latter option configures the processor to load all attributes starting with " +
+                    "the given prefix")
+            .required(true)
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .allowableValues(ATTR_TYPE_NAME, ATTR_TYPE_PREFIX)
+            .defaultValue("attribute name")
+            .build();
+
+    public static final PropertyDescriptor INPUT_ATTR_NAME = new PropertyDescriptor
+            .Builder().name("INPUT_ATTR_NAME")
+            .displayName("Input attribute name")
+            .description("This property specifies the name of the attribute that is passed to WURFL as input" +
+                    " or the prefix of a set of attributes to be passed to WURFL as HTTP header set ")
+            .required(true)
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .build();
+
     public static final Relationship SUCCESS = new Relationship.Builder()
             .name("SUCCESS")
             .description("Success relationship, used when WURFL detection process applied to the flow file succeeds")
@@ -139,6 +164,8 @@ public class WURFLDeviceEnrichProcessor extends AbstractProcessor {
         descriptors.add(WM_PORT);
         descriptors.add(WM_BASE_PATH);
         descriptors.add(WM_CACHE_SIZE);
+        descriptors.add(INPUT_ATTR_TYPE);
+        descriptors.add(INPUT_ATTR_NAME);
         this.descriptors = Collections.unmodifiableList(descriptors);
 
         final Set<Relationship> relationships = new HashSet<>();
@@ -252,6 +279,8 @@ public class WURFLDeviceEnrichProcessor extends AbstractProcessor {
         config.put(WM_PORT.getName(), context.getProperty(WM_PORT).getValue());
         config.put(WM_BASE_PATH.getName(), context.getProperty(WM_BASE_PATH).getValue());
         config.put(WM_CACHE_SIZE.getName(), context.getProperty(WM_CACHE_SIZE).getValue());
+        config.put(INPUT_ATTR_TYPE.getName(), context.getProperty(INPUT_ATTR_TYPE).getValue());
+        config.put(INPUT_ATTR_NAME.getName(), context.getProperty(INPUT_ATTR_NAME).getValue());
         return config;
     }
 
@@ -265,12 +294,13 @@ public class WURFLDeviceEnrichProcessor extends AbstractProcessor {
             return;
         }
 
-        logger.info("Reading HTTP attributes header ");
+        logger.info("Reading HTTP headers");
         dumpFlowFileAttributes(flowFile);
-        Map<String, String> headers = getHeadersFromFlowFile(flowFile);
+        Map<String, String> headers = getHeadersFromFlowFile(flowFile, context);
 
         logger.info("Starting WURFL data enrichment");
         if (headers.size() == 0) {
+            logger.warn("Headers map is empty, returning FAILURE STATE");
             session.transfer(flowFile, FAILURE);
         } else {
             try {
@@ -295,12 +325,27 @@ public class WURFLDeviceEnrichProcessor extends AbstractProcessor {
         logger.info(dump.toString());
     }
 
-    private Map<String, String> getHeadersFromFlowFile(FlowFile flowFile) {
+    private Map<String, String> getHeadersFromFlowFile(FlowFile flowFile, ProcessContext context) {
         Map<String, String> headers = new ConcurrentHashMap<>();
-        for (String hName : wmClientRef.get().getImportantHeaders()) {
-            String hValue = flowFile.getAttribute(HTTP_HEADER_ATTR_PREFIX + hName);
-            if (hValue != null) {
-                headers.put(hName, hValue);
+        String attributeType = context.getProperty(INPUT_ATTR_TYPE).getValue();
+        String attributeName = context.getProperty(INPUT_ATTR_NAME).getValue();
+
+        if (attributeType.equals(ATTR_TYPE_NAME)) {
+            headers.put("User-Agent", flowFile.getAttribute(attributeName));
+        } else {
+            // in this case, attribute type is necessarily a prefix, so we assume attribute name field contains the prefix for a set of attribute
+            // names that contain the HTTP request headers, so we load them all
+            Map<String, String> allAttrs = flowFile.getAttributes();
+            Set<String> allowedAttrs = allAttrs.keySet().stream()
+                    .filter(key -> key.startsWith(attributeName))
+                    .collect(Collectors.toSet());
+            for(String hname: wmClientRef.get().getImportantHeaders()){
+                allowedAttrs.forEach(attr -> {
+                    if(attr.toLowerCase().contains(hname.toLowerCase())){
+                        headers.put(hname, allAttrs.get(attr));
+                    }
+                });
+
             }
         }
         return headers;

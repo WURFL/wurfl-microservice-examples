@@ -53,7 +53,7 @@ import com.scientiamobile.wurfl.wmclient.*;
 public class WURFLDeviceEnrichProcessor extends AbstractProcessor {
 
     private final static String WURFL_ATTR_PREFIX = "wurfl.";
-    private static final String FAILURE_ATTR_NAME = "failure.cause";
+    protected static final String FAILURE_ATTR_NAME = "failure.cause";
 
 
     protected AtomicReference<WmClient> wmClientRef;

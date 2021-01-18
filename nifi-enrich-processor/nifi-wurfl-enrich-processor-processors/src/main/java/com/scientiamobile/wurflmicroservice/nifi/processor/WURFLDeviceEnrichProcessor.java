@@ -53,11 +53,10 @@ import com.scientiamobile.wurfl.wmclient.*;
 public class WURFLDeviceEnrichProcessor extends AbstractProcessor {
 
     private final static String WURFL_ATTR_PREFIX = "wurfl.";
-    //private final static String HTTP_HEADER_ATTR_PREFIX = "http.headers.";
     private static final String FAILURE_ATTR_NAME = "failure.cause";
 
 
-    private AtomicReference<WmClient> wmClientRef;
+    protected AtomicReference<WmClient> wmClientRef;
     private ComponentLog logger;
     private Map<String, String> currentConfiguration = new ConcurrentHashMap<>();
 

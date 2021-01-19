@@ -184,12 +184,11 @@ public class WURFLDeviceEnrichProcessor extends AbstractProcessor {
     }
 
     @OnScheduled
-    public void onScheduled(final ProcessContext context) throws WmException {
-        //logger.info("------------------------ ON SCHEDULED ---------------------------");
+    public void onScheduled(final ProcessContext context) {
         currentConfiguration = fromContext(context);
 
         if (wmClientRef == null || wmClientRef.get() == null) {
-            logger.warn("Recreating WM client in onSchedule method");
+            logger.info("Recreating WM client in onSchedule method");
             if (!createWmClient(currentConfiguration)) {
                 return;
             }
@@ -206,7 +205,7 @@ public class WURFLDeviceEnrichProcessor extends AbstractProcessor {
             return;
         }
 
-        // create a copy of the config config and replace the updated value
+        // create a copy of the config map and replace the updated value
         Map<String, String> newConfig = new ConcurrentHashMap<>(currentConfiguration);
         newConfig.put(descriptor.getName(), newValue);
 
@@ -298,22 +297,19 @@ public class WURFLDeviceEnrichProcessor extends AbstractProcessor {
         Map<String, String> headers = getHeadersFromFlowFile(flowFile, context);
 
         logger.info("Starting WURFL data enrichment");
-        if (headers.size() == 0) {
-            logger.warn("Headers map is empty, returning FAILURE STATE");
+
+        try {
+            Model.JSONDeviceData device = wmClientRef.get().lookupHeaders(headers);
+            final Map<String, String> wurflAttributes = new ConcurrentHashMap<>();
+            device.capabilities.forEach((key, value) -> wurflAttributes.put(WURFL_ATTR_PREFIX + key, value));
+            session.putAllAttributes(flowFile, wurflAttributes);
+            logger.info("WURFL data enrichment completed, sending SUCCESS flow");
+            session.transfer(flowFile, SUCCESS);
+        } catch (WmException e) {
+            session.putAttribute(flowFile, FAILURE_ATTR_NAME, e.getMessage());
             session.transfer(flowFile, FAILURE);
-        } else {
-            try {
-                Model.JSONDeviceData device = wmClientRef.get().lookupHeaders(headers);
-                final Map<String, String> wurflAttributes = new ConcurrentHashMap<>();
-                device.capabilities.forEach((key, value) -> wurflAttributes.put(WURFL_ATTR_PREFIX + key, value));
-                session.putAllAttributes(flowFile, wurflAttributes);
-                logger.info("WURFL data enrichment completed, sending SUCCESS flow");
-                session.transfer(flowFile, SUCCESS);
-            } catch (WmException e) {
-                session.putAttribute(flowFile, FAILURE_ATTR_NAME, e.getMessage());
-                session.transfer(flowFile, FAILURE);
-            }
         }
+
     }
 
     private void dumpFlowFileAttributes(FlowFile flowFile) {
@@ -338,9 +334,9 @@ public class WURFLDeviceEnrichProcessor extends AbstractProcessor {
             Set<String> allowedAttrs = allAttrs.keySet().stream()
                     .filter(key -> key.startsWith(attributeName))
                     .collect(Collectors.toSet());
-            for(String hname: wmClientRef.get().getImportantHeaders()){
+            for (String hname : wmClientRef.get().getImportantHeaders()) {
                 allowedAttrs.forEach(attr -> {
-                    if(attr.toLowerCase().contains(hname.toLowerCase())){
+                    if (attr.toLowerCase().contains(hname.toLowerCase())) {
                         headers.put(hname, allAttrs.get(attr));
                     }
                 });

@@ -70,6 +70,40 @@ public class TestWURFLDeviceEnrichProcessor {
     }
 
     @Test
+    public void invalidHeaderPrefixReturnsGenericDevice() throws WmException {
+
+        testRunner.setProperty(WURFLDeviceEnrichProcessor.WM_SCHEME, "http");
+        testRunner.setProperty(WURFLDeviceEnrichProcessor.WM_HOST, "localhost");
+        testRunner.setProperty(WURFLDeviceEnrichProcessor.WM_PORT, "9080");
+        testRunner.setProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_TYPE, "attribute name prefix");
+        testRunner.setProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_NAME, "invalid.prefix.");
+
+        when(wmClient.getImportantHeaders()).thenReturn(mockImportantHeaders());
+        Model.JSONDeviceData d = createMockDevice("generic", "", "", "false", "false");
+
+        Map<String,String> headers = new HashMap<>();
+
+        when(wmClient.lookupHeaders(headers)).thenReturn(d);
+        final Map<String, String> attributes = new HashMap<>();
+        // While this is a valid user agent. it will not selected for detection because processor has been configured to read prefixed headers
+        attributes.put("User-Agent", "AdsBot-Sample (+http://www.sample.c_om/adsbot)");
+        attributes.put("Accept", "text/html");
+        attributes.put("X-custom", "custom_value");
+
+        testRunner.enqueue(new byte[0], attributes);
+        testRunner.run();
+
+        List<MockFlowFile> failure = testRunner.getFlowFilesForRelationship(WURFLDeviceEnrichProcessor.FAILURE);
+        assertEquals(0, failure.size());
+        List<MockFlowFile> success = testRunner.getFlowFilesForRelationship(WURFLDeviceEnrichProcessor.SUCCESS);
+        assertEquals(1, success.size());
+
+        assertEquals("generic", success.get(0).getAttribute("wurfl.wurfl_id"));
+        assertEquals("false", success.get(0).getAttribute("wurfl.is_smartphone"));
+        assertEquals("false", success.get(0).getAttribute("wurfl.is_robot"));
+    }
+
+    @Test
     public void detectionUsingAttributeNameSuccess() throws WmException {
 
         testRunner.setProperty(WURFLDeviceEnrichProcessor.WM_SCHEME, "http");
@@ -81,7 +115,8 @@ public class TestWURFLDeviceEnrichProcessor {
         String ua = "Mozilla/5.0 (Linux; Android 10; Pixel 4 XL) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.62 Mobile Safari/537.36";
         Map<String,String> headers = new HashMap<>();
         headers.put("User-Agent", ua);
-        Model.JSONDeviceData d = createMockDevice();
+        Model.JSONDeviceData d = createMockDevice("google_pixel_4_xl_ver1", "Google", "Google Pixel 4 XL",
+                "true", "false");
         when(wmClient.lookupHeaders(headers)).thenReturn(d);
         final Map<String, String> attributes = new HashMap<>();
 
@@ -114,7 +149,8 @@ public class TestWURFLDeviceEnrichProcessor {
         String ua = "Mozilla/5.0 (Linux; Android 10; Pixel 4 XL) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.62 Mobile Safari/537.36";
         Map<String,String> headers = new HashMap<>();
         headers.put("User-Agent", ua);
-        Model.JSONDeviceData d = createMockDevice();
+        Model.JSONDeviceData d = createMockDevice("google_pixel_4_xl_ver1", "Google", "Google Pixel 4 XL",
+                "true", "false");
         when(wmClient.getImportantHeaders()).thenReturn(mockImportantHeaders());
         when(wmClient.lookupHeaders(headers)).thenReturn(d);
         final Map<String, String> attributes = new HashMap<>();
@@ -147,13 +183,13 @@ public class TestWURFLDeviceEnrichProcessor {
         return importantHeaders;
     }
 
-    private Model.JSONDeviceData createMockDevice() {
+    private Model.JSONDeviceData createMockDevice(String wurflId, String brandName, String completeDeviceName, String isSmartphone, String isRobot) {
         Map<String, String> capabilities = new HashMap<>();
-        capabilities.put("brand_name", "Google");
-        capabilities.put("complete_device_name", "Google Pixel 4 XL");
-        capabilities.put("wurfl_id", "google_pixel_4_xl_ver1");
-        capabilities.put("is_smartphone", "true");
-        capabilities.put("is_robot", "false");
+        capabilities.put("brand_name", brandName);
+        capabilities.put("complete_device_name", completeDeviceName);
+        capabilities.put("wurfl_id", wurflId);
+        capabilities.put("is_smartphone", isSmartphone);
+        capabilities.put("is_robot", isRobot);
         Model.JSONDeviceData d = new Model().new JSONDeviceData(capabilities, "", 0);
         return d;
     }

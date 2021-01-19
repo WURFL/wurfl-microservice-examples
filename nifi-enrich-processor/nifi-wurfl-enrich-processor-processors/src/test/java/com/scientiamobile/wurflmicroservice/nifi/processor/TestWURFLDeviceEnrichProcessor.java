@@ -40,13 +40,31 @@ public class TestWURFLDeviceEnrichProcessor {
     }
 
     @Test
-    public void wmExceptionFlowsToFailure() throws WmException {
+    public void testMissingPropertyValues() {
 
+        setValidTestPropertiesToRunner();
+        testRunner.removeProperty(WURFLDeviceEnrichProcessor.WM_HOST);
+        testRunner.assertNotValid();
+        setValidTestPropertiesToRunner();
+        testRunner.removeProperty(WURFLDeviceEnrichProcessor.WM_PORT);
+        testRunner.assertNotValid();
+        testRunner.removeProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_NAME);
+        testRunner.assertNotValid();
+
+    }
+
+    private void setValidTestPropertiesToRunner() {
         testRunner.setProperty(WURFLDeviceEnrichProcessor.WM_SCHEME, "http");
         testRunner.setProperty(WURFLDeviceEnrichProcessor.WM_HOST, "localhost");
         testRunner.setProperty(WURFLDeviceEnrichProcessor.WM_PORT, "9080");
         testRunner.setProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_TYPE, "attribute name");
         testRunner.setProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_NAME, "http.headers.User-Agent");
+    }
+
+    @Test
+    public void wmExceptionFlowsToFailure() throws WmException {
+
+        setValidTestPropertiesToRunner();
 
         String ua = "Mozilla/5.0 (Linux; Android 10; Pixel 4 XL) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.62 Mobile Safari/537.36";
         Map<String,String> headers = new HashMap<>();

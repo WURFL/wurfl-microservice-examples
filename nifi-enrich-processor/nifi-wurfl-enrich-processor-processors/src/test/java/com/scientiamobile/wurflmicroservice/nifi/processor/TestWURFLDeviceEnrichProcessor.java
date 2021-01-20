@@ -14,7 +14,6 @@ import org.junit.runner.RunWith;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,7 +47,7 @@ public class TestWURFLDeviceEnrichProcessor {
         setValidTestPropertiesToRunner();
         testRunner.removeProperty(WURFLDeviceEnrichProcessor.WM_PORT);
         testRunner.assertNotValid();
-        testRunner.removeProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_NAME);
+        testRunner.removeProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_HTTP_HEADERS_PREFIX);
         testRunner.assertNotValid();
 
     }
@@ -57,8 +56,8 @@ public class TestWURFLDeviceEnrichProcessor {
         testRunner.setProperty(WURFLDeviceEnrichProcessor.WM_SCHEME, "http");
         testRunner.setProperty(WURFLDeviceEnrichProcessor.WM_HOST, "localhost");
         testRunner.setProperty(WURFLDeviceEnrichProcessor.WM_PORT, "9080");
-        testRunner.setProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_TYPE, "attribute name");
-        testRunner.setProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_NAME, "http.headers.User-Agent");
+        testRunner.setProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_USER_AGENT, "attribute name");
+        testRunner.setProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_HTTP_HEADERS_PREFIX, "http.headers.User-Agent");
     }
 
     @Test
@@ -71,6 +70,7 @@ public class TestWURFLDeviceEnrichProcessor {
         headers.put("User-Agent", ua);
         WmException e = new WmException("Detection failed");
         when(wmClient.lookupHeaders(headers)).thenThrow(e);
+        when(wmClient.getImportantHeaders()).thenReturn(mockImportantHeaders());
         final Map<String, String> attributes = new HashMap<>();
 
         attributes.put("http.headers.User-Agent", ua);
@@ -93,8 +93,8 @@ public class TestWURFLDeviceEnrichProcessor {
         testRunner.setProperty(WURFLDeviceEnrichProcessor.WM_SCHEME, "http");
         testRunner.setProperty(WURFLDeviceEnrichProcessor.WM_HOST, "localhost");
         testRunner.setProperty(WURFLDeviceEnrichProcessor.WM_PORT, "9080");
-        testRunner.setProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_TYPE, "attribute name prefix");
-        testRunner.setProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_NAME, "invalid.prefix.");
+        testRunner.setProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_USER_AGENT, "attribute name prefix");
+        testRunner.setProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_HTTP_HEADERS_PREFIX, "invalid.prefix.");
 
         when(wmClient.getImportantHeaders()).thenReturn(mockImportantHeaders());
         Model.JSONDeviceData d = createMockDevice("generic", "", "", "false", "false");
@@ -127,14 +127,15 @@ public class TestWURFLDeviceEnrichProcessor {
         testRunner.setProperty(WURFLDeviceEnrichProcessor.WM_SCHEME, "http");
         testRunner.setProperty(WURFLDeviceEnrichProcessor.WM_HOST, "localhost");
         testRunner.setProperty(WURFLDeviceEnrichProcessor.WM_PORT, "9080");
-        testRunner.setProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_TYPE, "attribute name");
-        testRunner.setProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_NAME, "User-Agent");
+        testRunner.setProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_USER_AGENT, "attribute name");
+        testRunner.setProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_HTTP_HEADERS_PREFIX, "User-Agent");
 
         String ua = "Mozilla/5.0 (Linux; Android 10; Pixel 4 XL) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.62 Mobile Safari/537.36";
         Map<String,String> headers = new HashMap<>();
         headers.put("User-Agent", ua);
         Model.JSONDeviceData d = createMockDevice("google_pixel_4_xl_ver1", "Google", "Google Pixel 4 XL",
                 "true", "false");
+        when(wmClient.getImportantHeaders()).thenReturn(mockImportantHeaders());
         when(wmClient.lookupHeaders(headers)).thenReturn(d);
         final Map<String, String> attributes = new HashMap<>();
 
@@ -161,8 +162,8 @@ public class TestWURFLDeviceEnrichProcessor {
         testRunner.setProperty(WURFLDeviceEnrichProcessor.WM_SCHEME, "http");
         testRunner.setProperty(WURFLDeviceEnrichProcessor.WM_HOST, "localhost");
         testRunner.setProperty(WURFLDeviceEnrichProcessor.WM_PORT, "9080");
-        testRunner.setProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_TYPE, "attribute name prefix");
-        testRunner.setProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_NAME, "http.headers.");
+        testRunner.setProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_USER_AGENT, "attribute name prefix");
+        testRunner.setProperty(WURFLDeviceEnrichProcessor.INPUT_ATTR_HTTP_HEADERS_PREFIX, "http.headers.");
 
         String ua = "Mozilla/5.0 (Linux; Android 10; Pixel 4 XL) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.62 Mobile Safari/537.36";
         Map<String,String> headers = new HashMap<>();

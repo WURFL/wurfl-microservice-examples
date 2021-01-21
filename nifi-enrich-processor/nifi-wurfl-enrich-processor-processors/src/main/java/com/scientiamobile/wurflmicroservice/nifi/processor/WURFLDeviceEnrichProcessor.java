@@ -48,7 +48,6 @@ import org.apache.nifi.util.StringUtils;
 @Tags({"http", "https", "request", "listen", "WURFL", "web service", "attributes"})
 @InputRequirement(InputRequirement.Requirement.INPUT_REQUIRED)
 @CapabilityDescription("Processor that enriches data from HTTP requests passed in the flow files with data coming from WURFL Microservice")
-@ReadsAttribute(attribute = "http.headers.XXX", description = "Each of the HTTP Headers exposed by HandleHttpRequest processor")
 @WritesAttributes({
         @WritesAttribute(attribute = "wurfl.XXX", description = "Each of the WURFL capabilities exposed by WURFL Microservice will be added as "
                 + "attribute, prefixed with \"wurfl.\" For example, if the WURFL capability named \"brand_name\", then the value "
@@ -67,7 +66,6 @@ public class WURFLDeviceEnrichProcessor extends AbstractProcessor {
 
     // Let's add all the configuration properties needed by WURFL Microservice to be created and used by the NiFi processor.
     // These properties are filled in the Processor creation wizard in NiFi webapp UI
-
     public static final PropertyDescriptor WM_SCHEME = new PropertyDescriptor
             .Builder().name("WM_SCHEME")
             .displayName("WM server scheme")

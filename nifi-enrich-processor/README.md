@@ -10,7 +10,7 @@ An Apache NiFi processor that enriches a FlowFile attributes with WURFL device d
 ### Build the Nifi bundle
 
 Apache NiFi component bundles are built into files with **.nar** extension. 
-From this project root directory do:
+Run the following command from the project root folder (this folder):
 
 `mvn clean install`
 
@@ -19,5 +19,5 @@ if all tests pass, the archive is created under `$project_root/nifi-wurfl-enrich
 ### Installing .nar file on NiFi
 
 To install the .nar bundle into Apache NiFi drop the file into `$NIFI_HOME/lib`.
-Restart NiFi is not needed since it has a .nar autodiscovery and load mechanism
-which takes care of making the WURFL Processor discoverable.
+Restarting NiFi is not needed as the .nar autodiscovery and load mechanism
+make the WURFL Processor discoverable.

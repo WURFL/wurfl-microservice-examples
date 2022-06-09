@@ -1,7 +1,7 @@
 # WURFL Microservice pyspark streaming demo app
 
 ## Requirements
-- Python 3.x
+- Python 3.5+
 - Pip
 - Java 8 or above (for Spark)
 - Pyspark 3.1.3 or above (3.0.x version are not suggested due to some known vulerability)
@@ -23,7 +23,7 @@ pip install wmclient
 ## Running the app 
 
 Executing the app requires that you have a wurfl microservice instance up and running 
-(be it a Docker image or a VM instance on AWS, Azure o Google Cloud)
+(be it a Docker image or a VM instance on AWS, Azure o Google Cloud), and a running Spark instance
 
 **python ./spark_processor --ip <WM server IP> --port <WM server port>**
   
